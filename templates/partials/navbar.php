@@ -101,6 +101,10 @@ $currentRoute = $_GET['r'] ?? 'home';
                             <span class="d-none d-lg-inline">รายงาน</span>
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=receipts.history">
+                                <i class="bi bi-receipt me-2"></i>ประวัติใบเสร็จ
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=reports.sales">
                                 <i class="bi bi-currency-dollar me-2"></i>ยอดขาย
                             </a></li>

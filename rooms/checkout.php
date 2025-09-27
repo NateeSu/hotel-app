@@ -1,9 +1,14 @@
 <?php
 /**
- * Hotel Management System - Room Check-out Placeholder
+ * Hotel Management System - Enhanced Room Check-out
  *
- * TODO: Implement check-out form and process
+ * Complete check-out process with billing calculation and payment
  */
+
+// Define constants first
+if (!defined('APP_INIT')) {
+    define('APP_INIT', true);
+}
 
 // Start session and initialize application
 if (session_status() === PHP_SESSION_NONE) {
@@ -14,8 +19,8 @@ date_default_timezone_set('Asia/Bangkok');
 // Define base URL
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME'])); // Go up from /hotel-app/rooms to /hotel-app
-$baseUrl = $protocol . '://' . $host . $scriptPath;
+$appPath = '/hotel-app';
+$baseUrl = $protocol . '://' . $host . $appPath;
 $GLOBALS['baseUrl'] = $baseUrl;
 
 // Load required files
@@ -31,80 +36,476 @@ requireLogin(['reception', 'admin']);
 
 // Set page variables
 $pageTitle = 'Check-out - Hotel Management System';
-$pageDescription = 'Room check-out process';
+$pageDescription = 'Enhanced guest check-out process';
 
-// Get room ID from POST
+// Get room ID and validate
 $roomId = $_POST['room_id'] ?? $_GET['room_id'] ?? null;
+$booking = null;
+$room = null;
+
+if (!$roomId) {
+    flash_error('ไม่ได้ระบุห้องที่ต้องการ check-out');
+    redirectToRoute('rooms.board');
+}
+
+// Get current booking and room information
+try {
+    $pdo = getDatabase();
+
+    // Get room details
+    $stmt = $pdo->prepare("
+        SELECT id, room_number, room_type, status, max_occupancy
+        FROM rooms
+        WHERE id = ?
+    ");
+    $stmt->execute([$roomId]);
+    $room = $stmt->fetch();
+
+    if (!$room) {
+        flash_error('ไม่พบห้องที่ระบุ');
+        redirectToRoute('rooms.board');
+    }
+
+    if ($room['status'] !== 'occupied') {
+        flash_error('ห้องนี้ไม่มีแขกเข้าพัก ไม่สามารถ check-out ได้');
+        redirectToRoute('rooms.board');
+    }
+
+    // Get active booking for this room
+    $stmt = $pdo->prepare("
+        SELECT b.*, r.room_number
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        WHERE b.room_id = ? AND b.status = 'active'
+        ORDER BY b.checkin_at DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$roomId]);
+    $booking = $stmt->fetch();
+
+    if (!$booking) {
+        flash_error('ไม่พบข้อมูลการจองสำหรับห้องนี้');
+        redirectToRoute('rooms.board');
+    }
+
+    // Get rate information for overtime calculation
+    $rateType = $booking['plan_type'] === 'short' ? 'short_3h' : 'overnight';
+    $stmt = $pdo->prepare("SELECT price, duration_hours FROM rates WHERE rate_type = ? AND is_active = 1");
+    $stmt->execute([$rateType]);
+    $rate = $stmt->fetch();
+
+    // Get extended rate
+    $stmt = $pdo->prepare("SELECT price FROM rates WHERE rate_type = 'extended' AND is_active = 1");
+    $stmt->execute();
+    $extendedRate = $stmt->fetch();
+
+} catch (Exception $e) {
+    flash_error('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' . $e->getMessage());
+    redirectToRoute('rooms.board');
+}
+
+// Handle POST request (checkout processing)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_checkout'])) {
+    try {
+        // Verify CSRF token
+        if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+            throw new Exception('CSRF token verification failed');
+        }
+
+        // Get form data
+        $extraAmount = floatval($_POST['extra_amount'] ?? 0);
+        $extraNotes = trim($_POST['extra_notes'] ?? '');
+        $paymentMethod = $_POST['payment_method'] ?? $booking['payment_method'];
+        $currentTime = now();
+
+        // Calculate actual duration and overtime
+        $checkInTime = new DateTime($booking['checkin_at']);
+        $checkOutTime = new DateTime($currentTime);
+        $actualDuration = $checkOutTime->diff($checkInTime);
+        $actualHours = ($actualDuration->days * 24) + $actualDuration->h + ($actualDuration->i / 60);
+
+        // Calculate overtime charges
+        $baseHours = $rate['duration_hours'] ?? 3;
+        $overtimeHours = max(0, ceil($actualHours) - $baseHours);
+        $overtimeAmount = $overtimeHours * ($extendedRate['price'] ?? 100);
+
+        // Calculate total
+        $baseAmount = $booking['base_amount'] ?? 0;
+        $totalAmount = $baseAmount + $overtimeAmount + $extraAmount;
+
+        // Get current user
+        $currentUser = currentUser();
+
+        // Start database transaction
+        $pdo->beginTransaction();
+
+        // Update booking record
+        $stmt = $pdo->prepare("
+            UPDATE bookings SET
+                checkout_at = ?,
+                extra_amount = ?,
+                total_amount = ?,
+                payment_method = ?,
+                payment_status = 'paid',
+                status = 'completed',
+                notes = CONCAT(COALESCE(notes, ''), '\nCheck-out: ', ?, COALESCE(?, ''))
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            $currentTime,
+            $overtimeAmount + $extraAmount,
+            $totalAmount,
+            $paymentMethod,
+            $currentTime,
+            $extraNotes ? ' | ' . $extraNotes : '',
+            $booking['id']
+        ]);
+
+        // Update room status to cleaning
+        $stmt = $pdo->prepare("UPDATE rooms SET status = 'cleaning' WHERE id = ?");
+        $stmt->execute([$roomId]);
+
+        // Create housekeeping job
+        $stmt = $pdo->prepare("
+            INSERT INTO housekeeping_jobs (room_id, job_type, status, description, created_by)
+            VALUES (?, 'cleaning', 'pending', 'ทำความสะอาดหลัง check-out', ?)
+        ");
+        $stmt->execute([$roomId, $currentUser['id']]);
+
+        // Commit transaction
+        $pdo->commit();
+
+        // Generate receipt after successful checkout
+        try {
+            require_once __DIR__ . '/../lib/receipt_generator.php';
+            $receiptGenerator = new ReceiptGenerator();
+            $receiptData = $receiptGenerator->generateReceipt($booking['id'], $extraAmount, $extraNotes);
+
+            $message = "Check-out สำเร็จ! ห้อง {$room['room_number']} - {$booking['guest_name']} | ";
+            $message .= "ยอดชำระทั้งหมด: " . money_format_thb($totalAmount);
+            if ($overtimeHours > 0) {
+                $message .= " (รวมค่าเกินเวลา {$overtimeHours} ชั่วโมง: " . money_format_thb($overtimeAmount) . ")";
+            }
+
+            // Store receipt info in session for success page
+            $_SESSION['checkout_success'] = [
+                'booking_code' => $booking['booking_code'],
+                'guest_name' => $booking['guest_name'],
+                'room_number' => $room['room_number'],
+                'total_amount' => $totalAmount,
+                'receipt_number' => $receiptData['receipt_number'],
+                'receipt_url' => routeUrl('receipts.view', ['receipt_number' => $receiptData['receipt_number']])
+            ];
+
+            flash_success($message);
+            redirectToRoute('rooms.checkoutSuccess');
+
+        } catch (Exception $receiptError) {
+            error_log("Receipt generation failed: " . $receiptError->getMessage());
+
+            $message = "Check-out สำเร็จ! ห้อง {$room['room_number']} - {$booking['guest_name']} | ";
+            $message .= "ยอดชำระทั้งหมด: " . money_format_thb($totalAmount);
+            if ($overtimeHours > 0) {
+                $message .= " (รวมค่าเกินเวลา {$overtimeHours} ชั่วโมง: " . money_format_thb($overtimeAmount) . ")";
+            }
+            $message .= " (หมายเหตุ: ไม่สามารถสร้างใบเสร็จได้)";
+
+            flash_success($message);
+            redirectToRoute('rooms.board');
+        }
+
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        if ($pdo->inTransaction()) {
+            $pdo->rollback();
+        }
+        flash_error('เกิดข้อผิดพลาด: ' . $e->getMessage());
+    }
+}
+
+// Calculate current billing information for display
+$currentTime = now();
+$checkInTime = new DateTime($booking['checkin_at']);
+$currentDateTime = new DateTime($currentTime);
+$currentDuration = $currentDateTime->diff($checkInTime);
+$currentHours = ($currentDuration->days * 24) + $currentDuration->h + ($currentDuration->i / 60);
+
+$baseHours = $rate['duration_hours'] ?? 3;
+$currentOvertimeHours = max(0, ceil($currentHours) - $baseHours);
+$currentOvertimeAmount = $currentOvertimeHours * ($extendedRate['price'] ?? 100);
+$currentTotalAmount = ($booking['base_amount'] ?? 0) + $currentOvertimeAmount;
 
 // Include header
 require_once __DIR__ . '/../templates/layout/header.php';
 ?>
 
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
+    <div class="row justify-content-center">
+        <div class="col-xl-10 col-lg-12">
+            <!-- Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h1 class="h3 mb-1">
                         <i class="bi bi-box-arrow-left text-primary me-2"></i>
-                        Room Check-out
+                        Check-out ห้องพัก
                     </h1>
-                    <p class="text-muted mb-0">Process guest check-out</p>
+                    <p class="text-muted mb-0">ดำเนินการ check-out และคำนวณค่าใช้จ่าย</p>
                 </div>
 
                 <a href="<?php echo routeUrl('rooms.board'); ?>" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>
-                    Back to Room Board
+                    กลับหน้าห้องพัก
                 </a>
             </div>
 
-            <div class="card">
-                <div class="card-body">
-                    <div class="alert alert-warning">
-                        <h4 class="alert-heading">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            TODO: Check-out Process Implementation
-                        </h4>
-                        <p class="mb-2">This page is a placeholder. The following features need to be implemented:</p>
-                        <ul class="mb-0">
-                            <li>Current guest information display</li>
-                            <li>Bill calculation and payment</li>
-                            <li>Additional charges (mini-bar, damages, etc.)</li>
-                            <li>Check-out time recording</li>
-                            <li>Room status update to 'cleaning'</li>
-                        </ul>
+            <div class="row">
+                <!-- Guest Information -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-person-check me-2"></i>
+                                ข้อมูลแขก
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <p class="mb-2"><strong>ชื่อแขก:</strong><br>
+                                        <?php echo htmlspecialchars($booking['guest_name']); ?>
+                                    </p>
+                                    <p class="mb-2"><strong>เบอร์โทร:</strong><br>
+                                        <?php echo htmlspecialchars($booking['guest_phone'] ?: 'ไม่ระบุ'); ?>
+                                    </p>
+                                    <p class="mb-2"><strong>จำนวนผู้เข้าพัก:</strong><br>
+                                        <?php echo $booking['guest_count'] ?? 1; ?> คน
+                                    </p>
+                                </div>
+                                <div class="col-sm-6">
+                                    <p class="mb-2"><strong>ห้อง:</strong><br>
+                                        <?php echo htmlspecialchars($booking['room_number']); ?>
+                                    </p>
+                                    <p class="mb-2"><strong>ประเภทการพัก:</strong><br>
+                                        <?php echo $booking['plan_type'] === 'short' ? 'ชั่วคราว' : 'ค้างคืน'; ?>
+                                    </p>
+                                    <p class="mb-2"><strong>รหัสจอง:</strong><br>
+                                        <code><?php echo htmlspecialchars($booking['booking_code'] ?: 'N/A'); ?></code>
+                                    </p>
+                                </div>
+                            </div>
 
-                        <?php if ($roomId): ?>
+                            <!-- Check-in Information -->
                             <hr>
-                            <p class="mb-0"><strong>Room ID:</strong> <?php echo htmlspecialchars($roomId); ?></p>
-                        <?php endif; ?>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <p class="mb-2"><strong>เวลา Check-in:</strong><br>
+                                        <?php echo format_datetime_thai($booking['checkin_at'], 'd/m/Y H:i'); ?>
+                                    </p>
+                                    <p class="mb-2"><strong>เวลาปัจจุบัน:</strong><br>
+                                        <span id="current_time"><?php echo format_datetime_thai($currentTime, 'd/m/Y H:i'); ?></span>
+                                    </p>
+                                </div>
+                                <div class="col-sm-6">
+                                    <p class="mb-2"><strong>ระยะเวลาพัก:</strong><br>
+                                        <span id="duration_display">
+                                            <?php
+                                            echo $currentDuration->days > 0 ? $currentDuration->days . ' วัน ' : '';
+                                            echo $currentDuration->h . ' ชั่วโมง ' . $currentDuration->i . ' นาที';
+                                            ?>
+                                        </span>
+                                    </p>
+                                    <p class="mb-2"><strong>แพ็คเกจ:</strong><br>
+                                        <?php echo $baseHours; ?> ชั่วโมง
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <!-- Placeholder form structure -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Guest Information (Placeholder)</h5>
-                            <div class="border p-3 bg-light rounded">
-                                <p class="text-muted">Current guest details</p>
-                                <p class="text-muted">Check-in date/time</p>
-                                <p class="text-muted">Stay duration</p>
+                <!-- Billing Information -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-calculator me-2"></i>
+                                สรุปค่าใช้จ่าย
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="billing-summary">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>ค่าห้อง (พื้นฐาน):</span>
+                                    <strong><?php echo money_format_thb($booking['base_amount'] ?? 0); ?></strong>
+                                </div>
+
+                                <?php if ($currentOvertimeHours > 0): ?>
+                                <div class="d-flex justify-content-between mb-2 text-warning">
+                                    <span>ค่าเกินเวลา (<?php echo $currentOvertimeHours; ?> ชั่วโมง):</span>
+                                    <strong>+<?php echo money_format_thb($currentOvertimeAmount); ?></strong>
+                                </div>
+                                <?php endif; ?>
+
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>ค่าใช้จ่ายเพิ่มเติม:</span>
+                                    <strong id="extra_amount_display">฿0.00</strong>
+                                </div>
+
+                                <hr>
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="h5">รวมทั้งหมด:</span>
+                                    <strong class="h5 text-success" id="total_amount_display">
+                                        <?php echo money_format_thb($currentTotalAmount); ?>
+                                    </strong>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <span>สถานะการชำระ:</span>
+                                    <span class="badge bg-<?php echo $booking['payment_status'] === 'paid' ? 'success' : 'warning'; ?>">
+                                        <?php echo $booking['payment_status'] === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'; ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Check-out Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-check-circle me-2"></i>
+                        ดำเนินการ Check-out
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="<?php echo routeUrl('rooms.checkout', ['room_id' => $roomId]); ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
+                        <input type="hidden" name="room_id" value="<?php echo htmlspecialchars($roomId); ?>">
+                        <input type="hidden" name="process_checkout" value="1">
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="extra_amount" class="form-label">
+                                        <i class="bi bi-plus-circle me-1"></i>
+                                        ค่าใช้จ่ายเพิ่มเติม (บาท)
+                                    </label>
+                                    <input type="number"
+                                           class="form-control"
+                                           id="extra_amount"
+                                           name="extra_amount"
+                                           min="0"
+                                           step="0.01"
+                                           value="0"
+                                           onchange="updateTotal()">
+                                    <div class="form-text">เช่น ค่าเสียหาย, minibar, ค่าบริการเพิ่มเติม</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="payment_method" class="form-label">
+                                        <i class="bi bi-credit-card me-1"></i>
+                                        วิธีชำระเงิน
+                                    </label>
+                                    <select class="form-select" id="payment_method" name="payment_method">
+                                        <option value="cash" <?php echo $booking['payment_method'] === 'cash' ? 'selected' : ''; ?>>เงินสด</option>
+                                        <option value="card" <?php echo $booking['payment_method'] === 'card' ? 'selected' : ''; ?>>บัตรเครดิต/เดบิต</option>
+                                        <option value="transfer" <?php echo $booking['payment_method'] === 'transfer' ? 'selected' : ''; ?>>โอนเงิน</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="col-md-6">
-                            <h5>Billing Summary (Placeholder)</h5>
-                            <div class="border p-3 bg-light rounded">
-                                <p class="text-muted">Room charges</p>
-                                <p class="text-muted">Additional services</p>
-                                <p class="text-muted">Total amount</p>
-                                <p class="text-muted">Payment confirmation</p>
+                        <div class="mb-4">
+                            <label for="extra_notes" class="form-label">
+                                <i class="bi bi-sticky me-1"></i>
+                                หมายเหตุเพิ่มเติม
+                            </label>
+                            <textarea class="form-control"
+                                      id="extra_notes"
+                                      name="extra_notes"
+                                      rows="3"
+                                      placeholder="ระบุรายละเอียดค่าใช้จ่ายเพิ่มเติม หรือหมายเหตุอื่นๆ"></textarea>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="bg-light rounded p-3 mb-4">
+                            <h6 class="text-muted mb-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                สรุปการ Check-out
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>ห้อง:</strong> <?php echo htmlspecialchars($booking['room_number']); ?><br>
+                                        <strong>แขก:</strong> <?php echo htmlspecialchars($booking['guest_name']); ?><br>
+                                        <strong>เวลา Check-out:</strong> <?php echo format_datetime_thai($currentTime, 'd/m/Y H:i'); ?>
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>ผู้ดำเนินการ:</strong> <?php echo htmlspecialchars(currentUser()['full_name']); ?><br>
+                                        <strong>หลังจาก Check-out:</strong> ห้องจะเปลี่ยนเป็นสถานะ "ทำความสะอาด"<br>
+                                        <strong>งานแม่บ้าน:</strong> จะถูกสร้างอัตโนมัติ
+                                    </small>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="<?php echo routeUrl('rooms.board'); ?>" class="btn btn-secondary">
+                                <i class="bi bi-x-circle me-1"></i>
+                                ยกเลิก
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg" onclick="return confirm('ยืนยันการ Check-out หรือไม่?')">
+                                <i class="bi bi-check-circle me-1"></i>
+                                ยืนยัน Check-out
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Real-time total calculation
+const baseAmount = <?php echo $booking['base_amount'] ?? 0; ?>;
+const overtimeAmount = <?php echo $currentOvertimeAmount; ?>;
+
+function updateTotal() {
+    const extraAmount = parseFloat(document.getElementById('extra_amount').value) || 0;
+    const totalAmount = baseAmount + overtimeAmount + extraAmount;
+
+    // Update display
+    document.getElementById('extra_amount_display').textContent = '฿' + extraAmount.toLocaleString('th-TH', {minimumFractionDigits: 2});
+    document.getElementById('total_amount_display').textContent = '฿' + totalAmount.toLocaleString('th-TH', {minimumFractionDigits: 2});
+}
+
+// Update current time every minute
+function updateCurrentTime() {
+    const now = new Date();
+    const options = {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+
+    document.getElementById('current_time').textContent = now.toLocaleDateString('th-TH', options);
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateTotal();
+    setInterval(updateCurrentTime, 60000); // Update every minute
+});
+</script>
 
 <?php require_once __DIR__ . '/../templates/layout/footer.php'; ?>

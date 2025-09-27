@@ -24,6 +24,7 @@ $routeConfig = [
     // Home/Dashboard routes
     'home' => ['file' => 'dashboard.php', 'public' => false],
     'dashboard' => ['file' => 'dashboard.php', 'public' => false],
+    'dashboard.analytics' => ['file' => 'dashboard_enhanced.php', 'roles' => ['reception', 'admin']],
 
     // Room management routes
     'rooms.board' => ['file' => 'rooms/board.php', 'roles' => ['reception', 'admin']],
@@ -35,6 +36,7 @@ $routeConfig = [
     // Room action routes (placeholders)
     'rooms.checkin' => ['file' => 'rooms/checkin.php', 'roles' => ['reception', 'admin']],
     'rooms.checkout' => ['file' => 'rooms/checkout.php', 'roles' => ['reception', 'admin']],
+    'rooms.checkoutSuccess' => ['file' => 'rooms/checkoutSuccess.php', 'roles' => ['reception', 'admin']],
     'rooms.move' => ['file' => 'rooms/move.php', 'roles' => ['reception', 'admin']],
     'rooms.cleanDone' => ['file' => 'rooms/cleanDone.php', 'roles' => ['reception', 'admin']],
 
@@ -61,6 +63,10 @@ $routeConfig = [
     'housekeeping.jobs' => ['file' => 'housekeeping/jobs.php', 'roles' => ['housekeeping', 'admin']],
     'housekeeping.assign' => ['file' => 'housekeeping/assign.php', 'roles' => ['admin']],
     'housekeeping.complete' => ['file' => 'housekeeping/complete.php', 'roles' => ['housekeeping', 'admin']],
+
+    // Receipt routes
+    'receipts.view' => ['file' => 'receipts/view.php', 'roles' => ['reception', 'admin']],
+    'receipts.history' => ['file' => 'receipts/history.php', 'roles' => ['reception', 'admin']],
 
     // Report routes
     'reports.sales' => ['file' => 'reports/sales.php', 'roles' => ['reception', 'admin']],

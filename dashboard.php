@@ -25,6 +25,7 @@ require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/router.php';
+require_once __DIR__ . '/lib/reports_engine.php';
 
 // Require login
 requireLogin(['reception', 'admin']);
@@ -36,9 +37,13 @@ $pageDescription = 'ภาพรวมระบบจัดการโรงแ
 // Get current user
 $currentUser = currentUser();
 
-// Get room statistics
+// Get dashboard data
 try {
     $pdo = getDatabase();
+    $reportsEngine = new ReportsEngine();
+
+    // Get dashboard summary
+    $dashboardSummary = $reportsEngine->getDashboardSummary();
 
     // Room statistics
     $stmt = $pdo->query("SELECT status, COUNT(*) as count FROM rooms GROUP BY status");
@@ -52,18 +57,25 @@ try {
 
     // Recent bookings
     $stmt = $pdo->query("
-        SELECT b.*, r.room_number
+        SELECT b.*, r.room_number, r.room_type
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
         ORDER BY b.created_at DESC
-        LIMIT 5
+        LIMIT 10
     ");
     $recentBookings = $stmt->fetchAll();
+
+    // Get quick analytics for charts
+    $salesData = $reportsEngine->getDailySalesReport(date('Y-m-d', strtotime('-7 days')), date('Y-m-d'));
+    $occupancyReport = $reportsEngine->getOccupancyReport(date('Y-m-d', strtotime('-7 days')), date('Y-m-d'));
 
 } catch (Exception $e) {
     $roomStats = [];
     $totalRooms = 0;
     $recentBookings = [];
+    $dashboardSummary = ['today' => [], 'room_status' => [], 'monthly_comparison' => []];
+    $salesData = [];
+    $occupancyReport = ['occupancy_by_date' => []];
 }
 
 // Include header
