@@ -1,0 +1,77 @@
+/**
+ * Hotel Management System - Main CSS
+ */
+
+/* Reset and Base */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: 700;
+}
+
+/* Main Content */
+.container-fluid {
+    padding: 2rem;
+}
+
+/* Room Cards */
+.room-card {
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.room-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.room-card .card-header {
+    border-bottom: none;
+    font-weight: 600;
+}
+
+.room-status-info {
+    min-height: 60px;
+}
+
+/* Status Colors */
+.border-success {
+    border-color: #198754 !important;
+}
+
+.border-danger {
+    border-color: #dc3545 !important;
+}
+
+.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.border-secondary {
+    border-color: #6c757d !important;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+
+    .col-sm-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
