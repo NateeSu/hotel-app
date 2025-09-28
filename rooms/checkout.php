@@ -167,13 +167,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_checkout'])) 
 
         // Create housekeeping job
         $stmt = $pdo->prepare("
-            INSERT INTO housekeeping_jobs (room_id, job_type, status, description, created_by)
-            VALUES (?, 'cleaning', 'pending', 'ทำความสะอาดหลัง check-out', ?)
+            INSERT INTO housekeeping_jobs (room_id, booking_id, task_type, priority, status, description, created_by)
+            VALUES (?, ?, 'checkout_cleaning', 'normal', 'pending', 'ทำความสะอาดหลัง check-out', ?)
         ");
-        $stmt->execute([$roomId, $currentUser['id']]);
+        $stmt->execute([$roomId, $booking['id'], $currentUser['id']]);
+
+        // Get the housekeeping job ID
+        $housekeepingJobId = $pdo->lastInsertId();
 
         // Commit transaction
         $pdo->commit();
+
+        // Send Telegram notification to housekeeping staff
+        try {
+            require_once __DIR__ . '/../lib/telegram_service.php';
+            $telegramService = new TelegramService();
+            $telegramService->sendHousekeepingNotification($housekeepingJobId);
+
+            // Mark notification as sent
+            $stmt = $pdo->prepare("UPDATE housekeeping_jobs SET telegram_sent = TRUE WHERE id = ?");
+            $stmt->execute([$housekeepingJobId]);
+
+        } catch (Exception $telegramError) {
+            // Log error but don't fail the checkout process
+            error_log("Telegram notification failed: " . $telegramError->getMessage());
+        }
 
         // Generate receipt after successful checkout
         try {

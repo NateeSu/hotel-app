@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(mysql:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -16,12 +16,21 @@ $currentUser = currentUser();
 $isLoggedIn = isLoggedIn();
 $userRole = $currentUser['role'] ?? null;
 $currentRoute = $_GET['r'] ?? 'home';
+$baseUrl = $GLOBALS['baseUrl'];
+
+// Helper function for permission check
+if (!function_exists('has_permission')) {
+    function has_permission($userRole, $requiredRoles) {
+        if ($userRole === 'admin') return true; // Admin has all permissions
+        return in_array($userRole, $requiredRoles);
+    }
+}
 ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
     <div class="container-fluid">
         <!-- Brand/Logo -->
-        <a class="navbar-brand d-flex align-items-center" href="<?php echo $baseUrl; ?>/?r=home">
+        <a class="navbar-brand d-flex align-items-center" href="<?php echo $GLOBALS['baseUrl'] ?? '/hotel-app'; ?>/?r=home">
             <i class="bi bi-building me-2 fs-4"></i>
             <span class="fw-bold d-none d-sm-inline">Hotel Management</span>
             <span class="fw-bold d-sm-none">Hotel</span>
@@ -40,7 +49,7 @@ $currentRoute = $_GET['r'] ?? 'home';
                     <!-- Rooms -->
                     <li class="nav-item">
                         <a class="nav-link <?php echo str_starts_with($currentRoute, 'rooms') ? 'active' : ''; ?>"
-                           href="<?php echo $baseUrl; ?>/?r=rooms.board">
+                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=rooms.board">
                             <i class="bi bi-grid-3x3-gap me-1"></i>
                             <span>ห้องพัก</span>
                         </a>
@@ -54,17 +63,17 @@ $currentRoute = $_GET['r'] ?? 'home';
                             <span>การจอง</span>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=bookings.list">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=bookings.list">
                                 <i class="bi bi-list-ul me-2"></i>รายการจอง
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=bookings.create">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=bookings.create">
                                 <i class="bi bi-plus-circle me-2"></i>จองใหม่
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=checkin.list">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=checkin.list">
                                 <i class="bi bi-box-arrow-in-right me-2"></i>เช็คอิน
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=checkout.list">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=checkout.list">
                                 <i class="bi bi-box-arrow-right me-2"></i>เช็คเอาท์
                             </a></li>
                         </ul>
@@ -74,7 +83,7 @@ $currentRoute = $_GET['r'] ?? 'home';
                     <?php if (has_permission($userRole, ['reception', 'admin'])): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo str_starts_with($currentRoute, 'customers') ? 'active' : ''; ?>"
-                           href="<?php echo $baseUrl; ?>/?r=customers.list">
+                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=customers.list">
                             <i class="bi bi-people me-1"></i>
                             <span class="d-none d-md-inline">ลูกค้า</span>
                         </a>
@@ -85,7 +94,7 @@ $currentRoute = $_GET['r'] ?? 'home';
                     <?php if (has_permission($userRole, ['housekeeping', 'admin'])): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo str_starts_with($currentRoute, 'housekeeping') ? 'active' : ''; ?>"
-                           href="<?php echo $baseUrl; ?>/?r=housekeeping.jobs">
+                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=housekeeping.jobs">
                             <i class="bi bi-tools me-1"></i>
                             <span class="d-none d-lg-inline">แม่บ้าน</span>
                         </a>
@@ -101,17 +110,17 @@ $currentRoute = $_GET['r'] ?? 'home';
                             <span class="d-none d-lg-inline">รายงาน</span>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=receipts.history">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=receipts.history">
                                 <i class="bi bi-receipt me-2"></i>ประวัติใบเสร็จ
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=reports.sales">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=reports.sales">
                                 <i class="bi bi-currency-dollar me-2"></i>ยอดขาย
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=reports.occupancy">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=reports.occupancy">
                                 <i class="bi bi-pie-chart me-2"></i>การเข้าพัก
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=reports.bookings">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=reports.bookings">
                                 <i class="bi bi-bar-chart me-2"></i>การจอง
                             </a></li>
                         </ul>
@@ -127,17 +136,17 @@ $currentRoute = $_GET['r'] ?? 'home';
                             <span class="d-none d-xl-inline">ระบบ</span>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=admin.users">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.users">
                                 <i class="bi bi-people me-2"></i>ผู้ใช้งาน
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=admin.rooms">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.rooms">
                                 <i class="bi bi-door-open me-2"></i>จัดการห้อง
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=admin.rates">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.rates">
                                 <i class="bi bi-tags me-2"></i>อัตราค่าห้อง
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=admin.settings">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.settings">
                                 <i class="bi bi-sliders me-2"></i>ตั้งค่าระบบ
                             </a></li>
                         </ul>
@@ -165,15 +174,15 @@ $currentRoute = $_GET['r'] ?? 'home';
                                 </h6>
                             </li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=profile.edit">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=profile.edit">
                                 <i class="bi bi-person-gear me-2"></i>โปรไฟล์
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $baseUrl; ?>/?r=profile.password">
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=profile.password">
                                 <i class="bi bi-key me-2"></i>เปลี่ยนรหัสผ่าน
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form method="POST" action="<?php echo $baseUrl; ?>/?r=auth.logout" class="d-inline">
+                                <form method="POST" action="<?php echo $GLOBALS['baseUrl']; ?>/?r=auth.logout" class="d-inline">
                                     <?php echo csrf_field(); ?>
                                     <button type="submit" class="dropdown-item text-danger">
                                         <i class="bi bi-box-arrow-right me-2"></i>ออกจากระบบ
@@ -188,7 +197,7 @@ $currentRoute = $_GET['r'] ?? 'home';
                 <!-- Login prompt for non-authenticated users -->
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="<?php echo $baseUrl; ?>/?r=auth.login">
+                        <a class="nav-link" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=auth.login">
                             <i class="bi bi-box-arrow-in-right me-1"></i>
                             เข้าสู่ระบบ
                         </a>
@@ -207,7 +216,7 @@ if ($isLoggedIn && isset($breadcrumbs) && !empty($breadcrumbs)):
     <div class="container-fluid px-3 px-md-4">
         <ol class="breadcrumb mb-0 py-2">
             <li class="breadcrumb-item">
-                <a href="<?php echo $baseUrl; ?>/?r=home" class="text-decoration-none">
+                <a href="<?php echo $GLOBALS['baseUrl']; ?>/?r=home" class="text-decoration-none">
                     <i class="bi bi-house-door"></i>
                 </a>
             </li>

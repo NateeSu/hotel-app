@@ -61,6 +61,8 @@ $routeConfig = [
 
     // Housekeeping routes
     'housekeeping.jobs' => ['file' => 'housekeeping/jobs.php', 'roles' => ['housekeeping', 'admin']],
+    'housekeeping.job' => ['file' => 'housekeeping/job.php', 'roles' => ['housekeeping', 'admin', 'reception']],
+    'housekeeping.reports' => ['file' => 'housekeeping/reports.php', 'roles' => ['housekeeping', 'admin', 'reception']],
     'housekeeping.assign' => ['file' => 'housekeeping/assign.php', 'roles' => ['admin']],
     'housekeeping.complete' => ['file' => 'housekeeping/complete.php', 'roles' => ['housekeeping', 'admin']],
 

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist การทดสอบ T008</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .checklist-item { padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.375rem; border: 1px solid #dee2e6; }
+        .checklist-item input[type="checkbox"] { transform: scale(1.2); margin-right: 0.75rem; }
+        .checklist-item.completed { background-color: #d1e7dd; border-color: #badbcc; }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="text-primary">
+            <i class="bi bi-clipboard-check me-2"></i>
+            Checklist การทดสอบ T008
+        </h1>
+        <p class="lead">ทำตามรายการนี้เพื่อทดสอบระบบแจ้งเตือนอย่างครบถ้วน</p>
+    </div>
+
+    <!-- เตรียมข้อมูล -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">1. เตรียมข้อมูลทดสอบ</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="sql1">
+                <label for="sql1">รัน <code>test_scenario_complete.sql</code> ใน phpMyAdmin</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="sql2">
+                <label for="sql2">แทนที่ YOUR_REAL_BOT_TOKEN ด้วย Bot Token จริง</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="sql3">
+                <label for="sql3">แทนที่ YOUR_REAL_CHAT_ID ด้วย Chat ID จริง</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="room1">
+                <label for="room1">ตรวจสอบห้อง TEST01 สถานะ "occupied"</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ตั้งค่า URL -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">2. ตั้งค่า URL สำหรับ Telegram</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="ngrok1">
+                <label for="ngrok1">ดาวน์โหลดและติดตั้ง Ngrok</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="ngrok2">
+                <label for="ngrok2">รันคำสั่ง <code>ngrok http 80</code></label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="ngrok3">
+                <label for="ngrok3">คัดลอก URL ที่ได้ เช่น https://abc123.ngrok.io</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="url1">
+                <label for="url1">เข้าหน้า <a href="telegram_url_setup.php" target="_blank">telegram_url_setup.php</a></label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="url2">
+                <label for="url2">ใส่ Ngrok URL และบันทึก</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="url3">
+                <label for="url3">ทดสอบคลิก "ทดสอบเปิด URL" สีเขียว</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ทดสอบระบบ -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0">3. ทดสอบระบบเบื้องต้น</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="test1">
+                <label for="test1">เข้าหน้า <a href="test_housekeeping_system.php" target="_blank">test_housekeeping_system.php</a></label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="test2">
+                <label for="test2">ตรวจสอบข้อ 1-7 ทั้งหมดเป็น "สำเร็จ"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="test3">
+                <label for="test3">หากมีข้อผิดพลาด แก้ไขก่อนทดสอบต่อ</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ทดสอบ Checkout -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">4. ทดสอบ Check-out และแจ้งเตือน</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout1">
+                <label for="checkout1">เข้าหน้า Room Board: <a href="/?r=rooms.board" target="_blank">/?r=rooms.board</a></label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout2">
+                <label for="checkout2">หาห้อง TEST01 (สถานะ occupied) คลิก "Check-out"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout3">
+                <label for="checkout3">ใส่ข้อมูลการชำระเงิน</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout4">
+                <label for="checkout4">คลิก "ยืนยัน Check-out"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout5">
+                <label for="checkout5">ตรวจสอบข้อความ "Check-out สำเร็จ"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="checkout6">
+                <label for="checkout6">ห้อง TEST01 เปลี่ยนเป็นสถานะ "cleaning"</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ทดสอบ Telegram -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0">5. ทดสอบการแจ้งเตือน Telegram</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="telegram1">
+                <label for="telegram1">เปิด Telegram และตรวจสอบข้อความแจ้งเตือน</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="telegram2">
+                <label for="telegram2">ข้อความมีข้อมูลห้อง แขก เวลา ความสำคัญ</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="telegram3">
+                <label for="telegram3">มีลิงก์ "🖱️ เปิดหน้างาน #X" กดได้</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="telegram4">
+                <label for="telegram4">คลิกลิงก์แล้วเปิดหน้ารายละเอียดงานได้</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ทดสอบการจัดการงาน -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">6. ทดสอบการจัดการงาน</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="job1">
+                <label for="job1">หน้ารายละเอียดงานแสดงข้อมูลครบถ้วน</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="job2">
+                <label for="job2">คลิก "เริ่มทำความสะอาด" สถานะเปลี่ยนเป็น "กำลังดำเนินการ"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="job3">
+                <label for="job3">เพิ่มหมายเหตุความคืบหน้า (ทดสอบ)</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="job4">
+                <label for="job4">คลิก "ทำความสะอาดเรียบร้อย" พร้อมหมายเหตุ</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="job5">
+                <label for="job5">สถานะเปลี่ยนเป็น "เสร็จสิ้น"</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="job6">
+                <label for="job6">ห้อง TEST01 เปลี่ยนเป็นสถานะ "available"</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ทดสอบรายงาน -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0">7. ทดสอบรายงานและระบบ</h4>
+        </div>
+        <div class="card-body">
+            <div class="checklist-item">
+                <input type="checkbox" id="report1">
+                <label for="report1">เข้าหน้า <a href="/?r=housekeeping.jobs" target="_blank">rายการงาน</a> แสดงงานที่เพิ่งเสร็จ</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="report2">
+                <label for="report2">เข้าหน้า <a href="/?r=housekeeping.reports" target="_blank">รายงานประสิทธิภาพ</a> แสดงสถิติ</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="report3">
+                <label for="report3">สถิติรวมแสดงงานเสร็จสิ้น 1 งาน</label>
+            </div>
+            <div class="checklist-item">
+                <input type="checkbox" id="report4">
+                <label for="report4">รายงานรายบุคคลแสดงประสิทธิภาพ</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- สรุป -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">✅ สรุปการทดสอบ</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <h5>หากทุกข้อผ่านแล้ว T008 พร้อมใช้งาน 100%!</h5>
+                <ul class="mb-0">
+                    <li>✅ ระบบส่ง Telegram แจ้งเตือนอัตโนมัติ</li>
+                    <li>✅ ลิงก์ใน Telegram กดได้และเปิดหน้างาน</li>
+                    <li>✅ จัดการงานครบวงจร: เริ่ม → ทำ → เสร็จ</li>
+                    <li>✅ รายงานประสิทธิภาพครบถ้วน</li>
+                    <li>✅ ห้องกลับสู่สถานะปกติอัตโนมัติ</li>
+                </ul>
+            </div>
+
+            <div id="completion-summary" class="alert alert-warning" style="display: none;">
+                <strong>ความคืบหน้า:</strong> <span id="progress-text">0/28 ข้อ</span>
+                <div class="progress mt-2">
+                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Track completion
+function updateProgress() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const completed = document.querySelectorAll('input[type="checkbox"]:checked');
+    const percentage = Math.round((completed.length / checkboxes.length) * 100);
+
+    document.getElementById('progress-text').textContent = `${completed.length}/${checkboxes.length} ข้อ`;
+    document.getElementById('progress-bar').style.width = percentage + '%';
+    document.getElementById('completion-summary').style.display = 'block';
+
+    // Update individual items
+    checkboxes.forEach(checkbox => {
+        const item = checkbox.closest('.checklist-item');
+        if (checkbox.checked) {
+            item.classList.add('completed');
+        } else {
+            item.classList.remove('completed');
+        }
+    });
+
+    if (percentage === 100) {
+        document.getElementById('completion-summary').className = 'alert alert-success';
+        document.getElementById('progress-text').innerHTML = `🎉 เสร็จสิ้น! ${completed.length}/${checkboxes.length} ข้อ`;
+    }
+}
+
+// Add event listeners
+document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    checkbox.addEventListener('change', updateProgress);
+});
+
+// Initial update
+updateProgress();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
