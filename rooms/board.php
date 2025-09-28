@@ -131,13 +131,9 @@ function getRoomActionButtons($room) {
             $buttons .= '</button>';
             $buttons .= '</form>';
 
-            $buttons .= '<form method="POST" action="' . routeUrl('rooms.move') . '" style="display: inline;">';
-            $buttons .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
-            $buttons .= '<input type="hidden" name="room_id" value="' . $roomId . '">';
-            $buttons .= '<button type="submit" class="btn btn-outline-secondary btn-sm w-100">';
-            $buttons .= '<i class="bi bi-arrow-left-right me-1"></i>Move';
-            $buttons .= '</button>';
-            $buttons .= '</form>';
+            $buttons .= '<a href="' . $GLOBALS['baseUrl'] . '/?r=rooms.transfer&room_id=' . $roomId . '" class="btn btn-outline-info btn-sm w-100">';
+            $buttons .= '<i class="bi bi-arrow-left-right me-1"></i>ย้ายห้อง';
+            $buttons .= '</a>';
             break;
 
         case 'cleaning':

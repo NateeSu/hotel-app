@@ -39,6 +39,7 @@ $routeConfig = [
     'rooms.checkoutSuccess' => ['file' => 'rooms/checkoutSuccess.php', 'roles' => ['reception', 'admin']],
     'rooms.move' => ['file' => 'rooms/move.php', 'roles' => ['reception', 'admin']],
     'rooms.cleanDone' => ['file' => 'rooms/cleanDone.php', 'roles' => ['reception', 'admin']],
+    'rooms.transfer' => ['file' => 'rooms/transfer.php', 'roles' => ['reception', 'admin']],
 
     // Booking management routes
     'bookings.list' => ['file' => 'bookings/list.php', 'roles' => ['reception', 'admin']],

@@ -116,7 +116,7 @@ class TelegramService {
     /**
      * Send message via Telegram API
      */
-    private function sendMessage($chatId, $message) {
+    public function sendMessage($chatId, $message) {
         if (!$this->botToken) {
             return ['success' => false, 'error' => 'Bot token not configured'];
         }
