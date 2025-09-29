@@ -18,6 +18,21 @@ $userRole = $currentUser['role'] ?? null;
 $currentRoute = $_GET['r'] ?? 'home';
 $baseUrl = $GLOBALS['baseUrl'];
 
+// Fetch hotel settings for navbar
+$hotelName = 'Hotel Management';
+try {
+    if (function_exists('getDatabase')) {
+        $pdo = getDatabase();
+        $stmt = $pdo->query("SELECT setting_value FROM hotel_settings WHERE setting_key = 'hotel_name' LIMIT 1");
+        $result = $stmt->fetch();
+        if ($result && !empty($result['setting_value'])) {
+            $hotelName = $result['setting_value'];
+        }
+    }
+} catch (Exception $e) {
+    // Use default if error
+}
+
 // Helper function for permission check
 if (!function_exists('has_permission')) {
     function has_permission($userRole, $requiredRoles) {
@@ -32,8 +47,8 @@ if (!function_exists('has_permission')) {
         <!-- Brand/Logo -->
         <a class="navbar-brand d-flex align-items-center" href="<?php echo $GLOBALS['baseUrl'] ?? '/hotel-app'; ?>/?r=home">
             <i class="bi bi-building me-2 fs-4"></i>
-            <span class="fw-bold d-none d-sm-inline">Hotel Management</span>
-            <span class="fw-bold d-sm-none">Hotel</span>
+            <span class="fw-bold d-none d-sm-inline"><?php echo htmlspecialchars($hotelName); ?></span>
+            <span class="fw-bold d-sm-none"><?php echo htmlspecialchars(mb_substr($hotelName, 0, 10)); ?></span>
         </a>
 
         <!-- Mobile toggle button -->
@@ -142,12 +157,15 @@ if (!function_exists('has_permission')) {
                             <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.rooms">
                                 <i class="bi bi-door-open me-2"></i>จัดการห้อง
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.rates">
-                                <i class="bi bi-tags me-2"></i>อัตราค่าห้อง
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=system.rates">
+                                <i class="bi bi-currency-dollar me-2"></i>อัตราค่าห้อง
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=system.settings">
+                                <i class="bi bi-sliders me-2"></i>ตั้งค่าระบบ
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.settings">
-                                <i class="bi bi-sliders me-2"></i>ตั้งค่าระบบ
+                                <i class="bi bi-gear me-2"></i>ตั้งค่าอื่นๆ
                             </a></li>
                         </ul>
                     </li>

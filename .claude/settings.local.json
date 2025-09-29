@@ -4,7 +4,11 @@
       "Bash(find:*)",
       "Bash(php:*)",
       "Bash(mysql:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(D:\\xampp\\mysql\\bin\\mysql:*)",
+      "Bash(\"D:\\xampp\\php\\php.exe\":*)",
+      "Bash(findstr:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

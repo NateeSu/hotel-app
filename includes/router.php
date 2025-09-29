@@ -76,6 +76,10 @@ $routeConfig = [
     'reports.occupancy' => ['file' => 'reports/occupancy.php', 'roles' => ['reception', 'admin']],
     'reports.bookings' => ['file' => 'reports/bookings.php', 'roles' => ['reception', 'admin']],
 
+    // System routes
+    'system.rates' => ['file' => 'system/rates_simple.php', 'roles' => ['admin']],
+    'system.settings' => ['file' => 'system/settings.php', 'roles' => ['admin']],
+
     // Admin routes
     'admin.users' => ['file' => 'admin/users.php', 'roles' => ['admin']],
     'admin.rooms' => ['file' => 'admin/rooms.php', 'roles' => ['admin']],

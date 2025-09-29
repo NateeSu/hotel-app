@@ -29,8 +29,37 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../templates/partials/flash.php';
 
+// Fetch hotel settings
+$hotelSettings = [
+    'hotel_name' => 'Hotel Management System',
+    'hotel_phone' => ''
+];
+
+try {
+    $pdo = getDatabase();
+
+    // Create basic table if it doesn't exist
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS hotel_settings (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            setting_key VARCHAR(100) NOT NULL UNIQUE,
+            setting_value TEXT,
+            INDEX idx_setting_key (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $stmt = $pdo->query("SELECT setting_key, setting_value FROM hotel_settings WHERE setting_key IN ('hotel_name', 'hotel_phone')");
+    $settingsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($settingsData as $setting) {
+        $hotelSettings[$setting['setting_key']] = $setting['setting_value'];
+    }
+} catch (Exception $e) {
+    // Use defaults if error
+}
+
 // Set page variables
-$pageTitle = 'เข้าสู่ระบบ - Hotel Management System';
+$pageTitle = 'เข้าสู่ระบบ - ' . $hotelSettings['hotel_name'];
 $pageDescription = 'เข้าสู่ระบบจัดการโรงแรม';
 
 // Handle form submission
@@ -265,8 +294,14 @@ ob_end_flush();
             <!-- Logo and Title -->
             <div class="login-logo">
                 <i class="bi bi-building"></i>
-                <h1>Hotel Management</h1>
+                <h1><?php echo htmlspecialchars($hotelSettings['hotel_name']); ?></h1>
                 <p class="small text-muted">ระบบจัดการโรงแรม</p>
+                <?php if (!empty($hotelSettings['hotel_phone'])): ?>
+                <p class="small text-primary mb-0">
+                    <i class="bi bi-telephone me-1"></i>
+                    <?php echo htmlspecialchars($hotelSettings['hotel_phone']); ?>
+                </p>
+                <?php endif; ?>
             </div>
 
             <!-- Flash Messages -->
@@ -353,7 +388,7 @@ ob_end_flush();
             <!-- Footer -->
             <div class="text-center mt-3">
                 <small class="text-muted">
-                    © <?php echo date('Y'); ?> Hotel Management System
+                    © <?php echo date('Y'); ?> <?php echo htmlspecialchars($hotelSettings['hotel_name']); ?>
                 </small>
             </div>
         </div>

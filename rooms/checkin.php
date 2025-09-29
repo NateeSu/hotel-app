@@ -48,7 +48,7 @@ if (!$roomId) {
     redirectToRoute('rooms.board');
 }
 
-// Get room information
+// Get room information and rates
 try {
     $pdo = getDatabase();
     $stmt = $pdo->prepare("SELECT id, room_number, room_type, status, max_occupancy FROM rooms WHERE id = ?");
@@ -63,6 +63,25 @@ try {
     if ($room['status'] !== 'available') {
         flash_error('ห้องนี้ไม่สามารถ check-in ได้ เนื่องจากสถานะห้องคือ: ' . $room['status']);
         redirectToRoute('rooms.board');
+    }
+
+    // Get current room rates
+    $stmt = $pdo->prepare("SELECT * FROM room_rates WHERE is_active = 1 ORDER BY rate_type");
+    $stmt->execute();
+    $rates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Organize rates by type
+    $ratesByType = [];
+    foreach ($rates as $rate) {
+        $ratesByType[$rate['rate_type']] = $rate;
+    }
+
+    // Set default rates if not found
+    if (empty($ratesByType['short'])) {
+        $ratesByType['short'] = ['price' => 200, 'duration_hours' => 3];
+    }
+    if (empty($ratesByType['overnight'])) {
+        $ratesByType['overnight'] = ['price' => 350, 'duration_hours' => 12];
     }
 
 } catch (Exception $e) {
@@ -337,11 +356,11 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                     </label>
                                     <select class="form-select form-select-lg" id="plan_type" name="plan_type" required onchange="updatePricing()">
                                         <option value="">เลือกประเภท</option>
-                                        <option value="short" data-price="300" data-hours="3" <?php echo ($_POST['plan_type'] ?? '') === 'short' ? 'selected' : ''; ?>>
-                                            ชั่วคราว (3 ชั่วโมง) - ฿300
+                                        <option value="short" data-price="<?php echo $ratesByType['short']['price']; ?>" data-hours="<?php echo $ratesByType['short']['duration_hours']; ?>" <?php echo ($_POST['plan_type'] ?? '') === 'short' ? 'selected' : ''; ?>>
+                                            ชั่วคราว (<?php echo $ratesByType['short']['duration_hours']; ?> ชั่วโมง) - ฿<?php echo number_format($ratesByType['short']['price']); ?>
                                         </option>
-                                        <option value="overnight" data-price="800" data-hours="12" <?php echo ($_POST['plan_type'] ?? '') === 'overnight' ? 'selected' : ''; ?>>
-                                            ค้างคืน (12 ชั่วโมง) - ฿800
+                                        <option value="overnight" data-price="<?php echo $ratesByType['overnight']['price']; ?>" data-hours="<?php echo $ratesByType['overnight']['duration_hours']; ?>" <?php echo ($_POST['plan_type'] ?? '') === 'overnight' ? 'selected' : ''; ?>>
+                                            ค้างคืน (<?php echo $ratesByType['overnight']['duration_hours']; ?> ชั่วโมง) - ฿<?php echo number_format($ratesByType['overnight']['price']); ?>
                                         </option>
                                     </select>
                                 </div>

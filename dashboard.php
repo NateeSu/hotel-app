@@ -5,7 +5,9 @@
  */
 
 // Define constants first
-define('APP_INIT', true);
+if (!defined('APP_INIT')) {
+    define('APP_INIT', true);
+}
 
 // Start session and initialize application
 if (session_status() === PHP_SESSION_NONE) {

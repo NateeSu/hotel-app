@@ -7,8 +7,12 @@
  */
 
 // Define application constants
-define('APP_INIT', true);
-define('APP_START_TIME', microtime(true));
+if (!defined('APP_INIT')) {
+    define('APP_INIT', true);
+}
+if (!defined('APP_START_TIME')) {
+    define('APP_START_TIME', microtime(true));
+}
 
 // Start session first
 if (session_status() === PHP_SESSION_NONE) {

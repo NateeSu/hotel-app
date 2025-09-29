@@ -11,6 +11,65 @@
 // ini_set('display_errors', 1);
 // ini_set('display_startup_errors', 1);
 
+// Handle AJAX requests FIRST to avoid any output
+if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
+    // Start session for AJAX
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    date_default_timezone_set('Asia/Bangkok');
+
+    // Load minimal required files for AJAX
+    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/../includes/helpers.php';
+    require_once __DIR__ . '/../includes/auth.php';
+
+    header('Content-Type: application/json');
+
+    try {
+        // Check authentication
+        if (!isLoggedIn()) {
+            echo json_encode(['success' => false, 'message' => 'User not authenticated']);
+            exit;
+        }
+
+        // Get filter parameters
+        $statusFilter = $_GET['status'] ?? '';
+
+        // Database query
+        $pdo = getDatabase();
+        $sql = "SELECT id, room_number, room_type as type, status, notes FROM rooms";
+        $params = [];
+
+        if (!empty($statusFilter)) {
+            $sql .= " WHERE status = ?";
+            $params[] = $statusFilter;
+        }
+
+        $sql .= " ORDER BY room_number";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'rooms' => $rooms,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'count' => count($rooms)
+        ]);
+
+    } catch (Exception $e) {
+        error_log("AJAX error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+
+    exit;
+}
+
 // Start session and initialize application
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -165,26 +224,7 @@ function getRoomActionButtons($room) {
     return $buttons;
 }
 
-// Handle AJAX requests for real-time updates
-if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
-    header('Content-Type: application/json');
-
-    try {
-        echo json_encode([
-            'success' => true,
-            'rooms' => $rooms,
-            'timestamp' => now()
-        ]);
-
-    } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'เกิดข้อผิดพลาดในการโหลดข้อมูล'
-        ]);
-    }
-
-    exit;
-}
+// AJAX handler moved to top of file
 
 // Include header
 require_once __DIR__ . '/../templates/layout/header.php';
@@ -210,14 +250,21 @@ require_once __DIR__ . '/../templates/layout/header.php';
         </select>
 
         <!-- Refresh Button -->
-        <button type="button" class="btn btn-outline-primary" id="refreshBoard" onclick="location.reload()">
+        <button type="button" class="btn btn-outline-primary" id="refreshBoard">
             <i class="bi bi-arrow-clockwise me-1"></i>
             <span class="d-none d-sm-inline">รีเฟรช</span>
         </button>
 
+        <!-- Real-time Status -->
+        <div class="d-flex align-items-center text-muted">
+            <div class="spinner-border spinner-border-sm me-2" style="width: 1rem; height: 1rem; display: none;" id="refreshSpinner"></div>
+            <i class="bi bi-broadcast text-success me-1"></i>
+            <small>Real-time</small>
+        </div>
+
         <!-- Settings (Admin only) -->
         <?php if (has_permission($userRole, ['admin'])): ?>
-        <button type="button" class="btn btn-outline-secondary">
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
             <i class="bi bi-gear me-1"></i>
             <span class="d-none d-sm-inline">ตั้งค่า</span>
         </button>
@@ -255,7 +302,7 @@ require_once __DIR__ . '/../templates/layout/header.php';
 
                     <div class="ms-auto">
                         <small class="text-muted">
-                            อัพเดตล่าสุด: <span id="lastUpdate"><?php echo format_datetime_thai(now(), 'H:i:s'); ?></span>
+                            อัพเดตล่าสุด: <span id="lastUpdate"><?php echo date('H:i:s'); ?></span>
                         </small>
                     </div>
                 </div>
@@ -404,8 +451,30 @@ require_once __DIR__ . '/../templates/layout/header.php';
 </style>
 
 <script>
+let autoRefreshInterval = null;
+let lastUpdateTime = null;
+let notificationSound = null;
+let shownNotifications = new Set(); // Track shown notifications
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Room board initialized successfully');
+
+    // Initialize notification sound
+    try {
+        notificationSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmsgBzyR1/K3dyMFl');
+        notificationSound.volume = 0.3;
+    } catch (e) {
+        console.log('Sound notification not supported');
+    }
+
+    // Load settings from localStorage
+    loadSettings();
+
+    // Initialize real-time updates
+    initializeRealTimeUpdates();
+
+    // Initialize notification checking
+    initializeNotificationChecking();
 
     // Filter functionality
     window.filterRooms = function(status) {
@@ -418,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = url.toString();
     };
 
-    // Room card click handlers (check elements exist first)
+    // Room card click handlers
     const roomBoard = document.getElementById('roomBoard');
     if (roomBoard) {
         roomBoard.addEventListener('click', function(event) {
@@ -433,10 +502,446 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Refresh button functionality (already has onclick in HTML)
+    // Manual refresh button
     const refreshButton = document.getElementById('refreshBoard');
     if (refreshButton) {
-        console.log('Refresh button found and ready');
+        refreshButton.onclick = function() {
+            refreshRoomBoard();
+        };
+    }
+});
+
+// Real-time updates functionality
+function initializeRealTimeUpdates() {
+    const refreshInterval = localStorage.getItem('autoRefresh') || '30';
+    if (refreshInterval > 0) {
+        setAutoRefresh(parseInt(refreshInterval));
+    }
+}
+
+function setAutoRefresh(seconds) {
+    clearInterval(autoRefreshInterval);
+    if (seconds > 0) {
+        autoRefreshInterval = setInterval(refreshRoomBoard, seconds * 1000);
+        console.log(`Auto refresh set to ${seconds} seconds`);
+    }
+}
+
+function refreshRoomBoard() {
+    const refreshSpinner = document.getElementById('refreshSpinner');
+    if (refreshSpinner) refreshSpinner.style.display = 'inline-block';
+
+    const url = '<?php echo $GLOBALS['baseUrl']; ?>/api/room_status.php?status=' + encodeURIComponent(getStatusFilter());
+
+    fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateRoomBoard(data.rooms);
+                updateLastUpdateTime();
+                checkForNotifications(data.rooms);
+                console.log(`🔄 Updated ${data.count} rooms at ${new Date().toLocaleTimeString()}`);
+            } else {
+                console.error('❌ Failed to refresh room board:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error refreshing room board:', error);
+        })
+        .finally(() => {
+            if (refreshSpinner) refreshSpinner.style.display = 'none';
+        });
+}
+
+function updateRoomBoard(rooms) {
+    const roomBoard = document.getElementById('roomBoard');
+    if (!roomBoard) return;
+
+    // Create a map of current rooms for comparison
+    const currentRooms = new Map();
+    const currentCards = roomBoard.querySelectorAll('.room-card');
+    currentCards.forEach(card => {
+        const roomNumber = card.querySelector('.card-title').textContent.trim().replace(/.*\s/, '');
+        const status = card.className.match(/border-(\w+)/)?.[1];
+        currentRooms.set(roomNumber, status);
+    });
+
+    // Update each room card
+    rooms.forEach(room => {
+        const currentStatus = currentRooms.get(room.room_number);
+        const newStatus = getRoomStatusColor(room.status);
+
+        if (currentStatus !== newStatus) {
+            // Room status changed - trigger notification (but prevent duplicates)
+            const statusChangeId = `status_change_${room.id}_${newStatus}_${Math.floor(Date.now() / 30000)}`; // Group by 30 seconds
+
+            if (!shownNotifications.has(statusChangeId)) {
+                showRoomStatusNotification(room, currentStatus, newStatus);
+                shownNotifications.add(statusChangeId);
+            }
+        }
+
+        updateRoomCard(room);
+    });
+}
+
+function updateRoomCard(room) {
+    const roomBoard = document.getElementById('roomBoard');
+    const cards = roomBoard.querySelectorAll('.room-card');
+
+    for (let card of cards) {
+        const roomNumber = card.querySelector('.card-title').textContent.trim().replace(/.*\s/, '');
+        if (roomNumber === room.room_number) {
+            // Update status classes
+            const statusColor = getRoomStatusColor(room.status);
+            card.className = card.className.replace(/border-\w+/, `border-${statusColor}`);
+
+            const header = card.querySelector('.card-header');
+            header.className = header.className.replace(/bg-\w+/, `bg-${statusColor}`);
+
+            // Update status text and icon
+            const statusIcon = card.querySelector('.room-status-info i');
+            const statusText = card.querySelector('.room-status-info span');
+
+            if (statusIcon) statusIcon.className = `bi ${getRoomStatusIcon(room.status)} me-2`;
+            if (statusText) statusText.textContent = getRoomStatusText(room.status);
+
+            // Update action buttons
+            const buttonContainer = card.querySelector('.d-grid');
+            if (buttonContainer) {
+                buttonContainer.innerHTML = generateActionButtons(room);
+            }
+
+            break;
+        }
+    }
+}
+
+function updateLastUpdateTime() {
+    const lastUpdateElement = document.getElementById('lastUpdate');
+    if (lastUpdateElement) {
+        const now = new Date();
+        lastUpdateElement.textContent = now.toLocaleTimeString('th-TH');
+    }
+}
+
+function getStatusFilter() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('status') || '';
+}
+
+// Notification checking
+function initializeNotificationChecking() {
+    // Check every 10 seconds for urgent notifications
+    setInterval(checkUrgentNotifications, 10000);
+}
+
+function checkUrgentNotifications() {
+    fetch('<?php echo $GLOBALS['baseUrl']; ?>/api/check_notifications.php', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.notifications) {
+                data.notifications.forEach(notification => {
+                    // Create unique ID for notification
+                    const notificationId = `${notification.type}_${notification.room_id || 'general'}_${Math.floor(Date.now() / 60000)}`; // Group by minute
+
+                    if (!shownNotifications.has(notificationId)) {
+                        showNotification(notification);
+                        shownNotifications.add(notificationId);
+
+                        // Clean up old notification IDs (keep last 10 minutes)
+                        if (shownNotifications.size > 20) {
+                            const oldestIds = Array.from(shownNotifications).slice(0, 10);
+                            oldestIds.forEach(id => shownNotifications.delete(id));
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error checking notifications:', error);
+        });
+}
+
+function checkForNotifications(rooms) {
+    // Check for short-term checkout time notifications
+    rooms.forEach(room => {
+        if (room.status === 'occupied') {
+            checkShortTermCheckout(room);
+        }
+    });
+}
+
+function checkShortTermCheckout(room) {
+    // Fetch booking details for the room
+    fetch(`<?php echo $GLOBALS['baseUrl']; ?>/api/get_room_booking.php?room_id=${room.id}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.booking) {
+                const booking = data.booking;
+                if (booking.plan_type === 'short') {
+                    const checkoutTime = new Date(booking.checkout_at);
+                    const now = new Date();
+                    const timeDiff = checkoutTime - now;
+
+                    // Notify 15 minutes before checkout
+                    if (timeDiff > 0 && timeDiff <= 15 * 60 * 1000) {
+                        const warningId = `checkout_warning_${room.id}_${Math.floor(Date.now() / 300000)}`; // Group by 5 minutes
+                        if (!shownNotifications.has(warningId)) {
+                            showShortTermCheckoutNotification(room, booking, timeDiff);
+                            shownNotifications.add(warningId);
+                        }
+                    }
+                    // Notify when overdue
+                    else if (timeDiff <= 0) {
+                        const overdueId = `checkout_overdue_${room.id}_${Math.floor(Date.now() / 300000)}`; // Group by 5 minutes
+                        if (!shownNotifications.has(overdueId)) {
+                            showOverdueNotification(room, booking, Math.abs(timeDiff));
+                            shownNotifications.add(overdueId);
+                        }
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error checking booking:', error);
+        });
+}
+
+function showNotification(notification) {
+    // Create notification element
+    const notificationEl = document.createElement('div');
+    notificationEl.className = `alert alert-${notification.type} alert-dismissible fade show position-fixed`;
+    notificationEl.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+
+    notificationEl.innerHTML = `
+        <i class="bi bi-${notification.icon} me-2"></i>
+        <strong>${notification.title}</strong><br>
+        ${notification.message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(notificationEl);
+
+    // Play sound if enabled
+    if (localStorage.getItem('soundNotifications') === 'true' && notificationSound) {
+        notificationSound.play().catch(e => console.log('Could not play sound'));
+    }
+
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (notificationEl.parentNode) {
+            notificationEl.remove();
+        }
+    }, 10000);
+}
+
+function showShortTermCheckoutNotification(room, booking, timeDiff) {
+    const minutes = Math.ceil(timeDiff / (60 * 1000));
+    showNotification({
+        type: 'warning',
+        icon: 'clock',
+        title: 'ใกล้เวลาเช็คเอาท์',
+        message: `ห้อง ${room.room_number} - ${booking.guest_name}<br>เหลือเวลา ${minutes} นาที`
+    });
+}
+
+function showOverdueNotification(room, booking, overdueTime) {
+    const minutes = Math.floor(overdueTime / (60 * 1000));
+    showNotification({
+        type: 'danger',
+        icon: 'exclamation-triangle',
+        title: 'เกินเวลาเช็คเอาท์',
+        message: `ห้อง ${room.room_number} - ${booking.guest_name}<br>เกินเวลาแล้ว ${minutes} นาที`
+    });
+}
+
+function showRoomStatusNotification(room, oldStatus, newStatus) {
+    let message = '';
+    let type = 'info';
+    let icon = 'info-circle';
+
+    if (newStatus === 'success') { // available
+        message = `ห้อง ${room.room_number} พร้อมให้บริการแล้ว`;
+        type = 'success';
+        icon = 'check-circle';
+    } else if (newStatus === 'danger') { // occupied
+        message = `ห้อง ${room.room_number} มีแขกเข้าพัก`;
+        type = 'info';
+        icon = 'person-fill';
+    } else if (newStatus === 'warning') { // cleaning
+        message = `ห้อง ${room.room_number} กำลังทำความสะอาด`;
+        type = 'warning';
+        icon = 'brush';
+    }
+
+    if (message) {
+        showNotification({
+            type: type,
+            icon: icon,
+            title: 'สถานะห้องเปลี่ยนแปลง',
+            message: message
+        });
+    }
+}
+
+// Settings management
+function loadSettings() {
+    const autoRefresh = localStorage.getItem('autoRefresh') || '30';
+    const soundNotifications = localStorage.getItem('soundNotifications') === 'true';
+
+    const autoRefreshSelect = document.getElementById('autoRefresh');
+    const soundNotificationsCheck = document.getElementById('soundNotifications');
+
+    if (autoRefreshSelect) autoRefreshSelect.value = autoRefresh;
+    if (soundNotificationsCheck) soundNotificationsCheck.checked = soundNotifications;
+}
+
+function saveSettings() {
+    const autoRefresh = document.getElementById('autoRefresh')?.value || '30';
+    const soundNotifications = document.getElementById('soundNotifications')?.checked || false;
+
+    localStorage.setItem('autoRefresh', autoRefresh);
+    localStorage.setItem('soundNotifications', soundNotifications);
+
+    // Apply settings
+    setAutoRefresh(parseInt(autoRefresh));
+
+    // Close modal
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) bsModal.hide();
+    }
+
+    showNotification({
+        type: 'success',
+        icon: 'check',
+        title: 'บันทึกการตั้งค่า',
+        message: 'การตั้งค่าถูกบันทึกเรียบร้อยแล้ว'
+    });
+}
+
+// Helper functions (these need to be available in JavaScript)
+function getRoomStatusColor(status) {
+    switch (status) {
+        case 'available': return 'success';
+        case 'occupied': return 'danger';
+        case 'cleaning':
+        case 'cg': return 'warning';
+        case 'maintenance': return 'secondary';
+        default: return 'light';
+    }
+}
+
+function getRoomStatusIcon(status) {
+    switch (status) {
+        case 'available': return 'bi-check-circle';
+        case 'occupied': return 'bi-person-fill';
+        case 'cleaning':
+        case 'cg': return 'bi-brush';
+        case 'maintenance': return 'bi-tools';
+        default: return 'bi-question-circle';
+    }
+}
+
+function getRoomStatusText(status) {
+    switch (status) {
+        case 'available': return 'ว่าง';
+        case 'occupied': return 'มีผู้พัก';
+        case 'cleaning':
+        case 'cg': return 'ทำความสะอาด';
+        case 'maintenance': return 'ซ่อมบำรุง';
+        default: return 'ไม่ระบุ';
+    }
+}
+
+// Generate action buttons based on room status
+function generateActionButtons(room) {
+    const baseUrl = '<?php echo $GLOBALS['baseUrl']; ?>';
+    const csrfToken = '<?php echo get_csrf_token(); ?>';
+    let buttons = '';
+
+    switch (room.status) {
+        case 'available':
+            buttons = `<a href="${baseUrl}/?r=rooms.checkin&room_id=${room.id}" class="btn btn-success btn-sm">
+                <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
+            </a>`;
+            break;
+
+        case 'occupied':
+            buttons = `
+                <form method="POST" action="${baseUrl}/?r=rooms.checkout" style="display: inline;" class="mb-1">
+                    <input type="hidden" name="csrf_token" value="${csrfToken}">
+                    <input type="hidden" name="room_id" value="${room.id}">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-box-arrow-left me-1"></i>Check-out
+                    </button>
+                </form>
+                <a href="${baseUrl}/?r=rooms.transfer&room_id=${room.id}" class="btn btn-outline-info btn-sm w-100">
+                    <i class="bi bi-arrow-left-right me-1"></i>ย้ายห้อง
+                </a>`;
+            break;
+
+        case 'cleaning':
+        case 'cg':
+            buttons = `
+                <form method="POST" action="${baseUrl}/?r=rooms.cleanDone" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="${csrfToken}">
+                    <input type="hidden" name="room_id" value="${room.id}">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-check-circle me-1"></i>Mark Done
+                    </button>
+                </form>`;
+            break;
+
+        case 'maintenance':
+            buttons = `
+                <form method="POST" action="${baseUrl}/?r=rooms.edit" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="${csrfToken}">
+                    <input type="hidden" name="room_id" value="${room.id}">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
+                </form>`;
+            break;
+
+        default:
+            buttons = '<span class="text-muted">ไม่มีการกระทำ</span>';
+            break;
+    }
+
+    return buttons;
+}
+
+// Event listeners for settings
+document.addEventListener('DOMContentLoaded', function() {
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', saveSettings);
     }
 });
 </script>

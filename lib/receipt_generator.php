@@ -19,13 +19,51 @@ class ReceiptGenerator {
 
     public function __construct() {
         $this->pdo = getDatabase();
-        $this->hotelInfo = [
-            'name' => 'HOTEL MANAGEMENT SYSTEM',
-            'address' => '123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110',
-            'phone' => '02-123-4567',
-            'email' => 'info@hotel.com',
-            'tax_id' => '0-1234-56789-01-2'
-        ];
+        $this->hotelInfo = $this->loadHotelSettings();
+    }
+
+    /**
+     * Load hotel settings from database
+     */
+    private function loadHotelSettings() {
+        try {
+            // Create basic table if it doesn't exist
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS hotel_settings (
+                    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    setting_key VARCHAR(100) NOT NULL UNIQUE,
+                    setting_value TEXT,
+                    INDEX idx_setting_key (setting_key)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            $stmt = $this->pdo->query("SELECT setting_key, setting_value FROM hotel_settings");
+            $settingsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $settings = [];
+            foreach ($settingsData as $setting) {
+                $settings[$setting['setting_key']] = $setting['setting_value'];
+            }
+
+            // Return hotel info with defaults
+            return [
+                'name' => strtoupper($settings['hotel_name'] ?? 'HOTEL MANAGEMENT SYSTEM'),
+                'address' => $settings['hotel_address'] ?? '123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110',
+                'phone' => $settings['hotel_phone'] ?? '02-123-4567',
+                'email' => $settings['hotel_email'] ?? 'info@hotel.com',
+                'tax_id' => $settings['hotel_tax_id'] ?? '0-1234-56789-01-2'
+            ];
+
+        } catch (Exception $e) {
+            // Return defaults if error
+            return [
+                'name' => 'HOTEL MANAGEMENT SYSTEM',
+                'address' => '123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110',
+                'phone' => '02-123-4567',
+                'email' => 'info@hotel.com',
+                'tax_id' => '0-1234-56789-01-2'
+            ];
+        }
     }
 
     /**
