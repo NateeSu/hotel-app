@@ -70,37 +70,43 @@ if (!function_exists('has_permission')) {
                         </a>
                     </li>
 
-                    <!-- Bookings -->
+                    <!-- Bookings (Disabled - Coming Soon) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?php echo str_starts_with($currentRoute, 'bookings') ? 'active' : ''; ?>"
-                           href="#" id="navbarBookings" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle disabled opacity-50"
+                           href="#" id="navbarBookings" role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           title="ฟีเจอร์นี้อยู่ระหว่างการพัฒนา">
                             <i class="bi bi-calendar-check me-1"></i>
                             <span>การจอง</span>
+                            <small class="badge bg-warning text-dark ms-1">Soon</small>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=bookings.list">
-                                <i class="bi bi-list-ul me-2"></i>รายการจอง
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=bookings.create">
-                                <i class="bi bi-plus-circle me-2"></i>จองใหม่
-                            </a></li>
+                            <li><span class="dropdown-item-text text-muted">
+                                <i class="bi bi-tools me-2"></i>ฟีเจอร์อยู่ระหว่างการพัฒนา
+                            </span></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=checkin.list">
+                            <li><span class="dropdown-item disabled text-muted">
+                                <i class="bi bi-list-ul me-2"></i>รายการจอง
+                            </span></li>
+                            <li><span class="dropdown-item disabled text-muted">
+                                <i class="bi bi-plus-circle me-2"></i>จองใหม่
+                            </span></li>
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-box-arrow-in-right me-2"></i>เช็คอิน
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=checkout.list">
+                            </span></li>
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-box-arrow-right me-2"></i>เช็คเอาท์
-                            </a></li>
+                            </span></li>
                         </ul>
                     </li>
 
-                    <!-- Customers (Reception and above) -->
+                    <!-- Customers (Reception and above) - Disabled -->
                     <?php if (has_permission($userRole, ['reception', 'admin'])): ?>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo str_starts_with($currentRoute, 'customers') ? 'active' : ''; ?>"
-                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=customers.list">
+                        <a class="nav-link disabled opacity-50"
+                           href="#" title="ฟีเจอร์นี้อยู่ระหว่างการพัฒนา">
                             <i class="bi bi-people me-1"></i>
                             <span class="d-none d-md-inline">ลูกค้า</span>
+                            <small class="badge bg-warning text-dark ms-1 d-none d-lg-inline">Soon</small>
                         </a>
                     </li>
                     <?php endif; ?>
@@ -145,15 +151,16 @@ if (!function_exists('has_permission')) {
                     <!-- Admin -->
                     <?php if (has_permission($userRole, ['admin'])): ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?php echo str_starts_with($currentRoute, 'admin') ? 'active' : ''; ?>"
+                        <a class="nav-link dropdown-toggle <?php echo str_starts_with($currentRoute, 'admin') || str_starts_with($currentRoute, 'system') ? 'active' : ''; ?>"
                            href="#" id="navbarAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear me-1"></i>
                             <span class="d-none d-xl-inline">ระบบ</span>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.users">
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-people me-2"></i>ผู้ใช้งาน
-                            </a></li>
+                                <small class="badge bg-warning text-dark ms-1">Soon</small>
+                            </span></li>
                             <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.rooms">
                                 <i class="bi bi-door-open me-2"></i>จัดการห้อง
                             </a></li>
@@ -164,9 +171,10 @@ if (!function_exists('has_permission')) {
                                 <i class="bi bi-sliders me-2"></i>ตั้งค่าระบบ
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=admin.settings">
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-gear me-2"></i>ตั้งค่าอื่นๆ
-                            </a></li>
+                                <small class="badge bg-warning text-dark ms-1">Soon</small>
+                            </span></li>
                         </ul>
                     </li>
                     <?php endif; ?>
@@ -192,12 +200,14 @@ if (!function_exists('has_permission')) {
                                 </h6>
                             </li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=profile.edit">
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-person-gear me-2"></i>โปรไฟล์
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $GLOBALS['baseUrl']; ?>/?r=profile.password">
+                                <small class="badge bg-warning text-dark ms-1">Soon</small>
+                            </span></li>
+                            <li><span class="dropdown-item disabled text-muted">
                                 <i class="bi bi-key me-2"></i>เปลี่ยนรหัสผ่าน
-                            </a></li>
+                                <small class="badge bg-warning text-dark ms-1">Soon</small>
+                            </span></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="POST" action="<?php echo $GLOBALS['baseUrl']; ?>/?r=auth.logout" class="d-inline">

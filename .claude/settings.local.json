@@ -8,7 +8,9 @@
       "Bash(D:\\xampp\\mysql\\bin\\mysql:*)",
       "Bash(\"D:\\xampp\\php\\php.exe\":*)",
       "Bash(findstr:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

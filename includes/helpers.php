@@ -303,6 +303,21 @@ function get_payment_status_info($status) {
 }
 
 /**
+ * Get room status label and CSS class
+ */
+function getRoomStatusInfo($status) {
+    $statusInfo = [
+        'available' => ['label' => 'ว่าง', 'class' => 'success'],
+        'occupied' => ['label' => 'มีผู้เข้าพัก', 'class' => 'danger'],
+        'cleaning' => ['label' => 'ทำความสะอาด', 'class' => 'warning'],
+        'maintenance' => ['label' => 'ซ่อมบำรุง', 'class' => 'secondary'],
+        'reserved' => ['label' => 'จองแล้ว', 'class' => 'info']
+    ];
+
+    return $statusInfo[$status] ?? ['label' => $status, 'class' => 'secondary'];
+}
+
+/**
  * Check if user has permission
  */
 function has_permission($user_role, $required_permissions) {
