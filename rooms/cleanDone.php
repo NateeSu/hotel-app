@@ -161,10 +161,6 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                             <td><?php echo htmlspecialchars($room['room_number']); ?></td>
                                         </tr>
                                         <tr>
-                                            <td><strong>ประเภทห้อง:</strong></td>
-                                            <td><?php echo htmlspecialchars($room['room_type']); ?></td>
-                                        </tr>
-                                        <tr>
                                             <td><strong>สถานะปัจจุบัน:</strong></td>
                                             <td>
                                                 <span class="badge bg-<?php echo $room['status'] === 'cleaning' ? 'warning' : 'secondary'; ?>">

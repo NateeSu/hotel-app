@@ -118,20 +118,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_checkout'])) 
         $paymentMethod = $_POST['payment_method'] ?? $booking['payment_method'];
         $currentTime = now();
 
-        // Calculate actual duration and overtime
-        $checkInTime = new DateTime($booking['checkin_at']);
-        $checkOutTime = new DateTime($currentTime);
-        $actualDuration = $checkOutTime->diff($checkInTime);
-        $actualHours = ($actualDuration->days * 24) + $actualDuration->h + ($actualDuration->i / 60);
+        // Calculate billing using new business rules
+        $billingData = calculate_billing($booking['plan_type'], $booking['checkin_at'], $currentTime);
 
-        // Calculate overtime charges
-        $baseHours = $rate['duration_hours'] ?? 3;
-        $overtimeHours = max(0, ceil($actualHours) - $baseHours);
-        $overtimeAmount = $overtimeHours * ($extendedRate['price'] ?? 100);
-
-        // Calculate total
-        $baseAmount = $booking['base_amount'] ?? 0;
+        $baseAmount = $billingData['base_amount'];
+        $overtimeAmount = $billingData['extra_amount'];
         $totalAmount = $baseAmount + $overtimeAmount + $extraAmount;
+
+        // Additional billing information for display
+        $nights = $billingData['nights'] ?? 0;
+        $hours = $billingData['hours'] ?? 0;
+        $overtimeHours = $billingData['overdue_hours'] ?? 0;
 
         // Get current user
         $currentUser = currentUser();

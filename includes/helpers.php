@@ -473,4 +473,162 @@ function is_room_available($room_id, $check_in, $check_out, $exclude_booking_id 
     }
 }
 
+/**
+ * Calculate billing based on plan type and duration
+ * New business rules: overnight stays calculated by nights until 12:00 checkout
+ */
+function calculate_billing($plan_type, $check_in, $check_out) {
+    try {
+        require_once __DIR__ . '/../config/db.php';
+        $pdo = getDatabase();
+
+        if ($plan_type === 'short') {
+            return calculate_short_term_billing($pdo, $check_in, $check_out);
+        } else {
+            return calculate_overnight_billing($pdo, $check_in, $check_out);
+        }
+
+    } catch (Exception $e) {
+        return [
+            'base_amount' => 0,
+            'extra_amount' => 0,
+            'total_amount' => 0,
+            'nights' => 0,
+            'hours' => 0,
+            'is_overdue' => false
+        ];
+    }
+}
+
+/**
+ * Calculate short-term billing (hour-based)
+ */
+function calculate_short_term_billing($pdo, $check_in, $check_out) {
+    // Get short-term rate
+    $stmt = $pdo->prepare("SELECT price, duration_hours FROM room_rates WHERE rate_type = 'short' AND is_active = 1");
+    $stmt->execute();
+    $rate = $stmt->fetch();
+
+    if (!$rate) {
+        $rate = ['price' => 200, 'duration_hours' => 3]; // Default values
+    }
+
+    $check_in_time = new DateTime($check_in);
+    $check_out_time = new DateTime($check_out);
+    $duration_hours = ($check_out_time->getTimestamp() - $check_in_time->getTimestamp()) / 3600;
+
+    $base_amount = $rate['price'];
+    $extra_amount = 0;
+    $is_overdue = false;
+
+    // Calculate overtime
+    if ($duration_hours > $rate['duration_hours']) {
+        $extra_hours = ceil($duration_hours - $rate['duration_hours']);
+        $extra_amount = $extra_hours * 100; // 100 baht per hour
+        $is_overdue = true;
+    }
+
+    return [
+        'base_amount' => $base_amount,
+        'extra_amount' => $extra_amount,
+        'total_amount' => $base_amount + $extra_amount,
+        'nights' => 0,
+        'hours' => $duration_hours,
+        'is_overdue' => $is_overdue,
+        'overdue_hours' => $is_overdue ? ceil($duration_hours - $rate['duration_hours']) : 0
+    ];
+}
+
+/**
+ * Calculate overnight billing (night-based until 12:00)
+ */
+function calculate_overnight_billing($pdo, $check_in, $check_out) {
+    // Get overnight rate
+    $stmt = $pdo->prepare("SELECT price FROM room_rates WHERE rate_type = 'overnight' AND is_active = 1");
+    $stmt->execute();
+    $rate = $stmt->fetch();
+
+    if (!$rate) {
+        $rate = ['price' => 350]; // Default value
+    }
+
+    $check_in_time = new DateTime($check_in);
+    $check_out_time = new DateTime($check_out);
+
+    // Calculate nights based on the number of days between check-in and check-out
+    // Each night allows checkout until 12:00 PM of the next day
+    $check_in_date = $check_in_time->format('Y-m-d');
+    $check_out_date = $check_out_time->format('Y-m-d');
+
+    // Calculate the number of days difference
+    $date_diff = (new DateTime($check_out_date))->diff(new DateTime($check_in_date))->days;
+    $nights = max(1, $date_diff); // Minimum 1 night
+
+    // If checking out on the same day, it's still 1 night
+    if ($date_diff == 0) {
+        $nights = 1;
+    }
+
+    // Check if overdue (after 12:00 PM of the expected checkout day)
+    $expected_checkout = new DateTime($check_in_date);
+    $expected_checkout->add(new DateInterval('P' . $nights . 'D')); // Add nights
+    $expected_checkout->setTime(12, 0, 0); // Set to 12:00 PM
+
+    $is_overdue = $check_out_time > $expected_checkout;
+    $overdue_hours = 0;
+
+    if ($is_overdue) {
+        $overdue_hours = ($check_out_time->getTimestamp() - $expected_checkout->getTimestamp()) / 3600;
+    }
+
+    $base_amount = $rate['price'] * $nights;
+    $extra_amount = 0;
+
+    // Calculate late checkout fee
+    if ($is_overdue) {
+        $extra_amount = ceil($overdue_hours) * 100; // 100 baht per hour after 12:00
+    }
+
+    return [
+        'base_amount' => $base_amount,
+        'extra_amount' => $extra_amount,
+        'total_amount' => $base_amount + $extra_amount,
+        'nights' => $nights,
+        'hours' => 0,
+        'is_overdue' => $is_overdue,
+        'overdue_hours' => $overdue_hours
+    ];
+}
+
+/**
+ * Check if room is overdue for checkout
+ */
+function is_room_overdue($booking) {
+    if (!$booking || $booking['status'] !== 'active') {
+        return false;
+    }
+
+    $now = new DateTime();
+    $checkout_at = new DateTime($booking['checkout_at']);
+
+    // Simple comparison: if current time is past the scheduled checkout time
+    return $now > $checkout_at;
+}
+
+/**
+ * Get overdue duration for a booking
+ */
+function get_overdue_duration($booking) {
+    if (!is_room_overdue($booking)) {
+        return 0;
+    }
+
+    $now = new DateTime();
+    $checkout_at = new DateTime($booking['checkout_at']);
+
+    // Calculate overdue time in hours
+    $overdue_seconds = $now->getTimestamp() - $checkout_at->getTimestamp();
+    return $overdue_seconds / 3600; // Return hours
+}
+
 ?>

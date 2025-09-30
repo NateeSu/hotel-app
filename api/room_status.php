@@ -35,20 +35,85 @@ try {
 
     $pdo = getDatabase();
 
-    // Build query
-    $sql = "SELECT id, room_number, room_type as type, status, notes FROM rooms";
+    // Build query with booking information for overdue status
+    $sql = "
+        SELECT
+            r.id,
+            r.room_number,
+            r.room_type as type,
+            r.status,
+            r.notes,
+            b.id as booking_id,
+            b.guest_name,
+            b.plan_type,
+            b.checkin_at,
+            b.checkout_at,
+            b.status as booking_status
+        FROM rooms r
+        LEFT JOIN bookings b ON r.id = b.room_id AND b.status = 'active'
+    ";
     $params = [];
 
     if (!empty($statusFilter)) {
-        $sql .= " WHERE status = ?";
+        $sql .= " WHERE r.status = ?";
         $params[] = $statusFilter;
     }
 
-    $sql .= " ORDER BY room_number";
+    $sql .= " ORDER BY r.room_number";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rawRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Process rooms to add overdue status
+    $rooms = [];
+    foreach ($rawRooms as $room) {
+        $roomData = [
+            'id' => $room['id'],
+            'room_number' => $room['room_number'],
+            'type' => $room['type'],
+            'status' => $room['status'],
+            'notes' => $room['notes'],
+            'guest_name' => $room['guest_name'],
+            'plan_type' => $room['plan_type'],
+            'checkin_at' => $room['checkin_at'],
+            'checkout_at' => $room['checkout_at'],
+            'is_overdue' => false,
+            'overdue_hours' => 0,
+            'overdue_text' => ''
+        ];
+
+        // Check if room is overdue
+        if ($room['booking_status'] === 'active' && $room['checkin_at'] && $room['checkout_at']) {
+            $booking = [
+                'status' => 'active',
+                'plan_type' => $room['plan_type'],
+                'checkin_at' => $room['checkin_at'],
+                'checkout_at' => $room['checkout_at']
+            ];
+
+            if (is_room_overdue($booking)) {
+                $overdue_hours = get_overdue_duration($booking);
+                $roomData['is_overdue'] = true;
+                $roomData['overdue_hours'] = $overdue_hours;
+
+                if ($overdue_hours < 1) {
+                    $minutes = floor($overdue_hours * 60);
+                    $roomData['overdue_text'] = "{$minutes} นาที";
+                } else {
+                    $hours = floor($overdue_hours);
+                    $minutes = floor(($overdue_hours - $hours) * 60);
+                    if ($minutes > 0) {
+                        $roomData['overdue_text'] = "{$hours} ชม. {$minutes} นาที";
+                    } else {
+                        $roomData['overdue_text'] = "{$hours} ชม.";
+                    }
+                }
+            }
+        }
+
+        $rooms[] = $roomData;
+    }
 
     // Return successful response
     echo json_encode([

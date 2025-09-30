@@ -141,48 +141,45 @@ class ReceiptGenerator {
     }
 
     /**
-     * Calculate billing details for the booking
+     * Calculate billing details for the booking using new business rules
      */
     private function calculateBilling($booking, $extraAmount = 0) {
-        // Get rate information
-        $rates = [
-            'short' => ['duration_hours' => 3, 'price' => 300],
-            'overnight' => ['duration_hours' => 12, 'price' => 800]
-        ];
+        $checkoutTime = $booking['checkout_at'] ?? date('Y-m-d H:i:s');
+        $billingData = calculate_billing($booking['plan_type'], $booking['checkin_at'], $checkoutTime);
 
-        $planType = $booking['plan_type'];
-        $baseHours = $rates[$planType]['duration_hours'];
-        $baseAmount = $rates[$planType]['price'];
-
-        // Calculate actual duration
+        // Calculate actual duration for display
         $checkinTime = strtotime($booking['checkin_at']);
-        $checkoutTime = $booking['checkout_at'] ? strtotime($booking['checkout_at']) : time();
-        $actualHours = ($checkoutTime - $checkinTime) / 3600;
+        $checkoutTimestamp = strtotime($checkoutTime);
+        $actualHours = ($checkoutTimestamp - $checkinTime) / 3600;
 
-        // Calculate overtime
-        $overtimeHours = max(0, ceil($actualHours) - $baseHours);
-        $overtimeRate = 100; // ฿100 per hour
-        $overtimeAmount = $overtimeHours * $overtimeRate;
-
-        // Total calculation
-        $totalAmount = $baseAmount + $overtimeAmount;
-
-        // Duration text
-        $durationText = sprintf('%.1f ชั่วโมง', $actualHours);
-        if ($actualHours >= 24) {
-            $days = floor($actualHours / 24);
-            $hours = $actualHours % 24;
-            $durationText = sprintf('%d วัน %.1f ชั่วโมง', $days, $hours);
+        // Create duration text based on plan type
+        if ($booking['plan_type'] === 'short') {
+            $durationText = sprintf('%.1f ชั่วโมง', $actualHours);
+        } else {
+            // Overnight: show nights and hours
+            $nights = $billingData['nights'];
+            $durationText = sprintf('%d คืน', $nights);
+            if ($billingData['is_overdue']) {
+                $overdueHours = $billingData['overdue_hours'];
+                if ($overdueHours >= 1) {
+                    $durationText .= sprintf(' (เกิน %.1f ชม.)', $overdueHours);
+                } else {
+                    $minutes = floor($overdueHours * 60);
+                    $durationText .= sprintf(' (เกิน %d นาที)', $minutes);
+                }
+            }
         }
 
         return [
-            'base_hours' => $baseHours,
-            'base_amount' => $baseAmount,
+            'base_hours' => $booking['plan_type'] === 'short' ? 3 : 12, // For display only
+            'base_amount' => $billingData['base_amount'],
             'actual_hours' => $actualHours,
-            'overtime_hours' => $overtimeHours,
-            'overtime_amount' => $overtimeAmount,
-            'total_amount' => $totalAmount,
-            'duration_text' => $durationText
+            'nights' => $billingData['nights'] ?? 0,
+            'overtime_hours' => $billingData['overdue_hours'] ?? 0,
+            'overtime_amount' => $billingData['extra_amount'],
+            'total_amount' => $billingData['total_amount'],
+            'duration_text' => $durationText,
+            'is_overdue' => $billingData['is_overdue'] ?? false
         ];
     }
 

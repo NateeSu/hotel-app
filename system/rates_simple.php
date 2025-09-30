@@ -132,7 +132,11 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                         <div class="col-6">
                                             <label class="form-label">ระยะเวลา (ชั่วโมง)</label>
                                             <input type="number" class="form-control" name="overnight_hours"
-                                                   value="<?php echo $overnightRate['duration_hours']; ?>" min="1" max="24" required>
+                                                   value="<?php echo $overnightRate['duration_hours']; ?>" min="1" max="24" required readonly>
+                                            <div class="form-text text-info">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                การพักค้างคืนคิดเป็นจำนวนคืน (เช็คเอาท์ถึง 12:00)
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -145,7 +149,7 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                             ชั่วคราว: <strong>฿<?php echo number_format($shortRate['price']); ?> / <?php echo $shortRate['duration_hours']; ?> ชม.</strong>
                                         </div>
                                         <div class="col-6">
-                                            ค้างคืน: <strong>฿<?php echo number_format($overnightRate['price']); ?> / <?php echo $overnightRate['duration_hours']; ?> ชม.</strong>
+                                            ค้างคืน: <strong>฿<?php echo number_format($overnightRate['price']); ?> / คืน</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -156,6 +160,49 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                     <button type="submit" class="btn btn-success">บันทึกการเปลี่ยนแปลง</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+
+                    <!-- Business Rules Information -->
+                    <div class="card mt-4">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                เงื่อนไขทางธุรกิจใหม่
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">
+                                        <i class="bi bi-clock me-1"></i>
+                                        การพักแบบชั่วคราว
+                                    </h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check text-success me-2"></i>คิดค่าบริการตามชั่วโมง</li>
+                                        <li><i class="bi bi-check text-success me-2"></i>ระยะเวลามาตรฐาน: 3 ชั่วโมง</li>
+                                        <li><i class="bi bi-check text-success me-2"></i>เกินเวลา: 100 บาท/ชั่วโมง</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-success">
+                                        <i class="bi bi-moon me-1"></i>
+                                        การพักแบบค้างคืน
+                                    </h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check text-success me-2"></i>คิดค่าบริการตามจำนวนคืน (ไม่ใช่ชั่วโมง)</li>
+                                        <li><i class="bi bi-check text-success me-2"></i>เช็คเอาท์: จนถึง 12:00 ของวันสุดท้าย</li>
+                                        <li><i class="bi bi-check text-success me-2"></i>เกิน 12:00: 100 บาท/ชั่วโมง</li>
+                                        <li><i class="bi bi-check text-success me-2"></i>สามารถพักได้หลายคืน (1 คืน, 2 คืน, 3 คืน...)</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning mt-3">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>หมายเหตุสำคัญ:</strong> ระบบจะแสดงห้องที่เกินเวลาเช็คเอาท์ด้วยสีแดงเด่นชัด
+                                และแสดงระยะเวลาที่เกินใน Room Board แบบ Real-time
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -140,18 +140,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $plannedCheckOut = null;
         $baseAmount = 0;
 
-        // Get rate information
-        $rateType = $planType === 'short' ? 'short_3h' : 'overnight';
-        $stmt = $pdo->prepare("SELECT price, duration_hours FROM rates WHERE rate_type = ? AND is_active = 1");
-        $stmt->execute([$rateType]);
-        $rate = $stmt->fetch();
+        if ($planType === 'short') {
+            // Short-term: hour-based calculation
+            $rateType = 'short_3h';
+            $stmt = $pdo->prepare("SELECT price, duration_hours FROM rates WHERE rate_type = ? AND is_active = 1");
+            $stmt->execute([$rateType]);
+            $rate = $stmt->fetch();
 
-        if ($rate) {
-            $baseAmount = $rate['price'];
-            $hours = $duration > 0 ? $duration : $rate['duration_hours'];
-            $plannedCheckOut = date('Y-m-d H:i:s', strtotime($checkInTime . " +{$hours} hours"));
+            if ($rate) {
+                $baseAmount = $rate['price'];
+                $hours = $duration > 0 ? $duration : $rate['duration_hours'];
+
+                // Calculate extended hours cost
+                if ($hours > $rate['duration_hours']) {
+                    $extraHours = $hours - $rate['duration_hours'];
+                    $baseAmount += ($extraHours * 100); // ฿100 per extra hour
+                }
+
+                $plannedCheckOut = date('Y-m-d H:i:s', strtotime($checkInTime . " +{$hours} hours"));
+            } else {
+                throw new Exception('ไม่พบข้อมูลอัตราค่าบริการแบบชั่วคราว');
+            }
+        } else if ($planType === 'overnight') {
+            // Overnight: night-based calculation
+            $rateType = 'overnight';
+            $stmt = $pdo->prepare("SELECT price FROM rates WHERE rate_type = ? AND is_active = 1");
+            $stmt->execute([$rateType]);
+            $rate = $stmt->fetch();
+
+            if ($rate) {
+                $nights = $duration > 0 ? $duration : 1;
+                $baseAmount = $rate['price'] * $nights;
+
+                // Calculate checkout time: 12:00 PM of the last day
+                $checkoutDate = date('Y-m-d', strtotime($checkInTime . " +{$nights} days"));
+                $plannedCheckOut = $checkoutDate . ' 12:00:00';
+            } else {
+                throw new Exception('ไม่พบข้อมูลอัตราค่าบริการแบบค้างคืน');
+            }
         } else {
-            throw new Exception('ไม่พบข้อมูลอัตราค่าบริการ');
+            throw new Exception('ประเภทการพักไม่ถูกต้อง');
         }
 
         // Generate booking code
@@ -249,9 +277,6 @@ require_once __DIR__ . '/../templates/layout/header.php';
                     <div class="row">
                         <div class="col-md-6">
                             <p class="mb-1"><strong>หมายเลขห้อง:</strong> <?php echo htmlspecialchars($room['room_number']); ?></p>
-                            <p class="mb-1"><strong>ประเภทห้อง:</strong>
-                                <?php echo $room['room_type'] === 'short' ? 'ชั่วคราว' : 'ค้างคืน'; ?>
-                            </p>
                         </div>
                         <div class="col-md-6">
                             <p class="mb-1"><strong>สถานะปัจจุบัน:</strong>
@@ -360,7 +385,7 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                             ชั่วคราว (<?php echo $ratesByType['short']['duration_hours']; ?> ชั่วโมง) - ฿<?php echo number_format($ratesByType['short']['price']); ?>
                                         </option>
                                         <option value="overnight" data-price="<?php echo $ratesByType['overnight']['price']; ?>" data-hours="<?php echo $ratesByType['overnight']['duration_hours']; ?>" <?php echo ($_POST['plan_type'] ?? '') === 'overnight' ? 'selected' : ''; ?>>
-                                            ค้างคืน (<?php echo $ratesByType['overnight']['duration_hours']; ?> ชั่วโมง) - ฿<?php echo number_format($ratesByType['overnight']['price']); ?>
+                                            ค้างคืน (จนถึง 12:00 ของวันถัดไป) - ฿<?php echo number_format($ratesByType['overnight']['price']); ?> / คืน
                                         </option>
                                     </select>
                                 </div>
@@ -370,7 +395,7 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                 <div class="mb-3">
                                     <label for="duration" class="form-label">
                                         <i class="bi bi-hourglass-split me-1"></i>
-                                        ระยะเวลา (ชั่วโมง)
+                                        <span id="duration_label">ระยะเวลา (ชั่วโมง)</span>
                                     </label>
                                     <input type="number"
                                            class="form-control"
@@ -381,7 +406,7 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                            placeholder="ปรับได้ถ้าต้องการ"
                                            value="<?php echo htmlspecialchars($_POST['duration'] ?? ''); ?>"
                                            onchange="updatePricing()">
-                                    <div class="form-text">เปลี่ยนได้หากต้องการระยะเวลาที่แตกต่าง</div>
+                                    <div class="form-text" id="duration_help">เปลี่ยนได้หากต้องการระยะเวลาที่แตกต่าง</div>
                                 </div>
                             </div>
                         </div>
@@ -480,6 +505,8 @@ function updatePricing() {
     const planType = document.getElementById('plan_type');
     const duration = document.getElementById('duration');
     const displayAmount = document.getElementById('display_amount');
+    const durationLabel = document.getElementById('duration_label');
+    const durationHelp = document.getElementById('duration_help');
 
     if (!planType.value) {
         displayAmount.textContent = 'เลือกประเภทการพัก';
@@ -489,22 +516,62 @@ function updatePricing() {
     const selectedOption = planType.options[planType.selectedIndex];
     const basePrice = parseInt(selectedOption.dataset.price);
     const baseHours = parseInt(selectedOption.dataset.hours);
-    const customDuration = parseInt(duration.value) || baseHours;
+    const planTypeValue = planType.value;
 
     let totalPrice = basePrice;
-    let priceText = `฿${basePrice.toLocaleString()}`;
+    let priceText = '';
 
-    // Calculate extended hours if needed
-    if (customDuration > baseHours) {
-        const extraHours = customDuration - baseHours;
-        const extendedCost = extraHours * 100; // ฿100 per hour
-        totalPrice = basePrice + extendedCost;
-        priceText = `฿${basePrice.toLocaleString()} + ฿${extendedCost.toLocaleString()} = ฿${totalPrice.toLocaleString()}`;
-    }
+    if (planTypeValue === 'short') {
+        // Short-term: show hourly pricing
+        const customDuration = parseInt(duration.value) || baseHours;
 
-    // Update duration field if empty
-    if (!duration.value) {
-        duration.value = baseHours;
+        // Update UI for short-term
+        durationLabel.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>ระยะเวลา (ชั่วโมง)';
+        durationHelp.textContent = 'เปลี่ยนได้หากต้องการระยะเวลาที่แตกต่าง';
+        duration.removeAttribute('readonly');
+        duration.placeholder = 'ปรับได้ถ้าต้องการ';
+        duration.max = '48';
+
+        totalPrice = basePrice;
+        priceText = `฿${basePrice.toLocaleString()}`;
+
+        // Calculate extended hours if needed
+        if (customDuration > baseHours) {
+            const extraHours = customDuration - baseHours;
+            const extendedCost = extraHours * 100; // ฿100 per hour
+            totalPrice = basePrice + extendedCost;
+            priceText = `฿${basePrice.toLocaleString()} + ฿${extendedCost.toLocaleString()} = ฿${totalPrice.toLocaleString()}`;
+        }
+
+        // Update duration field if empty
+        if (!duration.value) {
+            duration.value = baseHours;
+        }
+    } else if (planTypeValue === 'overnight') {
+        // Overnight: show per-night pricing
+        const nights = parseInt(duration.value) || 1;
+
+        // Update UI for overnight
+        durationLabel.innerHTML = '<i class="bi bi-calendar-date me-1"></i>ระยะเวลา (คืน)';
+        durationHelp.textContent = 'จำนวนคืนที่ต้องการพัก (เช็คเอาท์ 12:00 ของวันสุดท้าย)';
+        duration.removeAttribute('readonly');
+        duration.placeholder = 'จำนวนคืน';
+        duration.max = '30'; // Maximum 30 nights
+
+        totalPrice = basePrice * nights;
+        priceText = `฿${basePrice.toLocaleString()} × ${nights} คืน = ฿${totalPrice.toLocaleString()}`;
+
+        if (nights === 1) {
+            priceText += `<br><small class="text-muted">เช็คเอาท์: 12:00 ของวันถัดไป</small>`;
+        } else {
+            priceText += `<br><small class="text-muted">เช็คเอาท์: 12:00 ของวันที่ ${nights + 1}</small>`;
+        }
+        priceText += `<br><small class="text-muted">เกิน 12:00: +100 บาท/ชั่วโมง</small>`;
+
+        // Set default value if empty
+        if (!duration.value) {
+            duration.value = 1;
+        }
     }
 
     displayAmount.innerHTML = priceText;
@@ -514,10 +581,17 @@ function updatePricing() {
 }
 
 function updateCheckoutTime() {
-    const duration = document.getElementById('duration').value;
-    if (duration) {
+    const planType = document.getElementById('plan_type').value;
+    const duration = document.getElementById('duration');
+
+    if (planType === 'overnight') {
+        // For overnight stays: checkout at 12:00 PM of the last day
+        const nights = parseInt(duration.value) || 1;
         const now = new Date();
-        const checkoutTime = new Date(now.getTime() + (duration * 60 * 60 * 1000));
+        const checkoutTime = new Date(now);
+        checkoutTime.setDate(checkoutTime.getDate() + nights); // Add number of nights
+        checkoutTime.setHours(12, 0, 0, 0); // 12:00 PM
+
         const options = {
             day: '2-digit',
             month: '2-digit',
@@ -530,6 +604,27 @@ function updateCheckoutTime() {
         const summaryElement = document.querySelector('.checkout-time');
         if (summaryElement) {
             summaryElement.textContent = checkoutTime.toLocaleDateString('th-TH', options);
+        }
+    } else if (planType === 'short') {
+        // For short-term stays: normal hour-based calculation
+        const durationValue = duration.value;
+
+        if (durationValue) {
+            const now = new Date();
+            const checkoutTime = new Date(now.getTime() + (durationValue * 60 * 60 * 1000));
+            const options = {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+
+            // Update summary if element exists
+            const summaryElement = document.querySelector('.checkout-time');
+            if (summaryElement) {
+                summaryElement.textContent = checkoutTime.toLocaleDateString('th-TH', options);
+            }
         }
     }
 }

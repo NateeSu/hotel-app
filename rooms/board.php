@@ -115,16 +115,29 @@ $statusFilter = $_GET['status'] ?? '';
 try {
     $pdo = getDatabase();
 
-    // Build query with correct column names for this database
-    $sql = "SELECT id, room_number, room_type as type, status, notes FROM rooms";
+    // Build query to get room information with booking details
+    $sql = "
+        SELECT
+            r.id,
+            r.room_number,
+            r.room_type as type,
+            r.status,
+            r.notes,
+            b.plan_type,
+            b.checkin_at,
+            b.checkout_at,
+            b.guest_name
+        FROM rooms r
+        LEFT JOIN bookings b ON r.id = b.room_id AND b.status = 'active'
+    ";
     $params = [];
 
     if (!empty($statusFilter)) {
-        $sql .= " WHERE status = ?";
+        $sql .= " WHERE r.status = ?";
         $params[] = $statusFilter;
     }
 
-    $sql .= " ORDER BY room_number";
+    $sql .= " ORDER BY r.room_number";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -328,15 +341,10 @@ require_once __DIR__ . '/../templates/layout/header.php';
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
                 <div class="card room-card h-100 <?php echo 'border-' . getRoomStatusColor($room['status']); ?>">
                     <div class="card-header bg-<?php echo getRoomStatusColor($room['status']); ?> text-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-door-closed me-2"></i>
-                                <?php echo htmlspecialchars($room['room_number']); ?>
-                            </h5>
-                            <span class="badge bg-light text-dark">
-                                <?php echo $room['type'] === 'short' ? 'ชั่วคราว' : 'ค้างคืน'; ?>
-                            </span>
-                        </div>
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-door-closed me-2"></i>
+                            <?php echo htmlspecialchars($room['room_number']); ?>
+                        </h5>
                     </div>
 
                     <div class="card-body">
@@ -345,6 +353,38 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                 <i class="bi <?php echo getRoomStatusIcon($room['status']); ?> me-2"></i>
                                 <span class="fw-bold"><?php echo getRoomStatusText($room['status']); ?></span>
                             </div>
+
+                            <?php if ($room['status'] === 'occupied' && !empty($room['plan_type'])): ?>
+                                <!-- Booking Information -->
+                                <div class="booking-info bg-light rounded p-2 mb-2">
+                                    <div class="row g-1">
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-person me-1"></i>
+                                                <strong><?php echo htmlspecialchars($room['guest_name'] ?? 'ไม่ระบุชื่อ'); ?></strong>
+                                            </small>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-tag me-1"></i>
+                                                <strong><?php echo $room['plan_type'] === 'short' ? 'ชั่วคราว' : 'ค้างคืน'; ?></strong>
+                                            </small>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-clock me-1"></i>
+                                                เข้า: <?php echo format_datetime_thai($room['checkin_at'], 'd/m H:i'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-clock-history me-1"></i>
+                                                ออก: <?php echo format_datetime_thai($room['checkout_at'], 'd/m H:i'); ?>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <?php if (!empty($room['notes'])): ?>
                                 <small class="text-muted">
@@ -440,6 +480,38 @@ require_once __DIR__ . '/../templates/layout/header.php';
 
 .room-status-info {
     min-height: 60px;
+}
+
+/* Overdue room styling */
+.overdue-room {
+    animation: pulse-danger 2s infinite;
+    box-shadow: 0 0 20px rgba(220, 53, 69, 0.3);
+}
+
+.overdue-room .card-header {
+    background: linear-gradient(135deg, #dc3545, #c82333) !important;
+    border-bottom: 2px solid rgba(255,255,255,0.3);
+}
+
+.overdue-warning {
+    border-left: 4px solid #dc3545;
+    background: linear-gradient(90deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+@keyframes pulse-danger {
+    0% { border-color: #dc3545; }
+    50% { border-color: #ff6b7a; }
+    100% { border-color: #dc3545; }
+}
+
+.alert-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
 }
 
 @media (max-width: 576px) {
@@ -603,12 +675,66 @@ function updateRoomCard(room) {
     for (let card of cards) {
         const roomNumber = card.querySelector('.card-title').textContent.trim().replace(/.*\s/, '');
         if (roomNumber === room.room_number) {
-            // Update status classes
-            const statusColor = getRoomStatusColor(room.status);
-            card.className = card.className.replace(/border-\w+/, `border-${statusColor}`);
+            // Debug log to check room data (comment out in production)
+            // console.log(`Updating room ${room.room_number}:`, {
+            //     status: room.status,
+            //     is_overdue: room.is_overdue,
+            //     plan_type: room.plan_type,
+            //     guest_name: room.guest_name
+            // });
+
+            // Ensure base classes are present
+            if (!card.classList.contains('room-card')) {
+                card.classList.add('room-card');
+            }
+            if (!card.classList.contains('h-100')) {
+                card.classList.add('h-100');
+            }
+            if (!card.classList.contains('card')) {
+                card.classList.add('card');
+            }
+
+            // Reset previous status-related classes
+            card.classList.remove('overdue-room', 'border-3');
+            // Remove all border color classes
+            card.classList.remove('border-success', 'border-danger', 'border-warning', 'border-info', 'border-secondary');
 
             const header = card.querySelector('.card-header');
-            header.className = header.className.replace(/bg-\w+/, `bg-${statusColor}`);
+            if (header) {
+                // Ensure base header classes are present
+                if (!header.classList.contains('card-header')) {
+                    header.classList.add('card-header');
+                }
+                if (!header.classList.contains('text-white')) {
+                    header.classList.add('text-white');
+                }
+
+                // Remove all background color classes from header
+                header.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'bg-secondary');
+            }
+
+            // Determine status color
+            let statusColor = getRoomStatusColor(room.status);
+
+            // Add new border color class
+            card.classList.add(`border-${statusColor}`);
+
+            // Add new header background color
+            if (header) {
+                header.classList.add(`bg-${statusColor}`);
+            }
+
+            // Override with overdue styling ONLY if room is actually overdue AND occupied
+            if (room.is_overdue && room.status === 'occupied') {
+                // Remove regular border color and add overdue styling
+                card.classList.remove(`border-${statusColor}`);
+                card.classList.add('border-danger', 'border-3', 'overdue-room');
+
+                if (header) {
+                    header.classList.remove(`bg-${statusColor}`);
+                    header.classList.add('bg-danger');
+                }
+            }
 
             // Update status text and icon
             const statusIcon = card.querySelector('.room-status-info i');
@@ -616,6 +742,99 @@ function updateRoomCard(room) {
 
             if (statusIcon) statusIcon.className = `bi ${getRoomStatusIcon(room.status)} me-2`;
             if (statusText) statusText.textContent = getRoomStatusText(room.status);
+
+            // Add or update overdue warning (ONLY for occupied rooms that are actually overdue)
+            let overdueWarning = card.querySelector('.overdue-warning');
+            if (room.is_overdue && room.status === 'occupied' && room.overdue_text) {
+                if (!overdueWarning) {
+                    overdueWarning = document.createElement('div');
+                    overdueWarning.className = 'overdue-warning alert alert-danger alert-sm mt-2 mb-2';
+                    card.querySelector('.card-body').appendChild(overdueWarning);
+                }
+                overdueWarning.innerHTML = `
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>เกินเวลา ${room.overdue_text}</strong>
+                `;
+            } else if (overdueWarning) {
+                // Always remove overdue warning if room is not overdue or not occupied
+                overdueWarning.remove();
+            }
+
+
+            // Update or add booking information ONLY for occupied rooms with booking data
+            let bookingInfo = card.querySelector('.booking-info');
+            if (room.status === 'occupied' && room.plan_type && room.guest_name) {
+                if (!bookingInfo) {
+                    // Create booking info section if it doesn't exist
+                    bookingInfo = document.createElement('div');
+                    bookingInfo.className = 'booking-info bg-light rounded p-2 mb-2';
+                    const statusDiv = card.querySelector('.room-status-info');
+                    statusDiv.insertBefore(bookingInfo, statusDiv.lastElementChild);
+                }
+
+                // Format dates for display
+                const checkinDate = room.checkin_at ? new Date(room.checkin_at).toLocaleDateString('th-TH', {
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                }) : 'ไม่ระบุ';
+
+                const checkoutDate = room.checkout_at ? new Date(room.checkout_at).toLocaleDateString('th-TH', {
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                }) : 'ไม่ระบุ';
+
+                const planTypeText = room.plan_type === 'short' ? 'ชั่วคราว' : 'ค้างคืน';
+
+                bookingInfo.innerHTML = `
+                    <div class="row g-1">
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-person me-1"></i>
+                                <strong>${room.guest_name || 'ไม่ระบุชื่อ'}</strong>
+                            </small>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-tag me-1"></i>
+                                <strong>${planTypeText}</strong>
+                            </small>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-clock me-1"></i>
+                                เข้า: ${checkinDate}
+                            </small>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-clock-history me-1"></i>
+                                ออก: ${checkoutDate}
+                            </small>
+                        </div>
+                    </div>
+                `;
+            } else if (bookingInfo) {
+                // Remove booking info if room is not occupied or has no booking data
+                bookingInfo.remove();
+            }
+
+            // Force refresh display to ensure clean state
+            if (room.status !== 'occupied') {
+                // Make sure no overdue classes remain for non-occupied rooms
+                card.classList.remove('overdue-room', 'border-3');
+                // Make sure no overdue warnings remain
+                const anyOverdueWarning = card.querySelector('.overdue-warning');
+                if (anyOverdueWarning) {
+                    anyOverdueWarning.remove();
+                }
+                // Make sure no booking info remains
+                const anyBookingInfo = card.querySelector('.booking-info');
+                if (anyBookingInfo) {
+                    anyBookingInfo.remove();
+                }
+            }
+
+            // Reset any inline styles that might interfere with CSS
+            card.style.removeProperty('transform');
+            card.style.removeProperty('box-shadow');
 
             // Update action buttons
             const buttonContainer = card.querySelector('.d-grid');
