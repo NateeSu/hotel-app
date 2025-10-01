@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('กรุณาระบุหมายเลขห้อง');
             }
 
-            if (!in_array($roomType, ['short', 'overnight'])) {
+            if (!in_array($roomType, ['double', 'single'])) {
                 throw new Exception('กรุณาเลือกประเภทห้อง');
             }
 
@@ -351,8 +351,8 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                     </td>
                                     <td>
                                         <?php
-                                        $typeText = $room['room_type'] === 'short' ? 'ชั่วคราว' : 'ค้างคืน';
-                                        $typeColor = $room['room_type'] === 'short' ? 'info' : 'purple';
+                                        $typeText = get_room_type_label($room['room_type']);
+                                        $typeColor = $room['room_type'] === 'single' ? 'info' : 'purple';
                                         ?>
                                         <span class="badge bg-<?php echo $typeColor; ?>"><?php echo $typeText; ?></span>
                                     </td>
@@ -438,8 +438,8 @@ require_once __DIR__ . '/../templates/layout/header.php';
                         </label>
                         <select class="form-select" id="room_type" name="room_type" required>
                             <option value="">เลือกประเภท</option>
-                            <option value="short">ชั่วคราว</option>
-                            <option value="overnight">ค้างคืน</option>
+                            <option value="double">เตียงคู่</option>
+                            <option value="single">เตียงเดี่ยว</option>
                         </select>
                         <div class="form-text">
                             <small>ประเภทห้องเป็นข้อมูลอ้างอิง ไม่จำกัดการเลือกประเภทการพักเมื่อเช็คอิน</small>
@@ -501,8 +501,8 @@ require_once __DIR__ . '/../templates/layout/header.php';
                             ประเภทห้อง <span class="text-danger">*</span>
                         </label>
                         <select class="form-select" id="edit_room_type" name="room_type" required>
-                            <option value="short">ชั่วคราว</option>
-                            <option value="overnight">ค้างคืน</option>
+                            <option value="double">เตียงคู่</option>
+                            <option value="single">เตียงเดี่ยว</option>
                         </select>
                     </div>
 

@@ -336,4 +336,3 @@ function debug_csrf_info() {
 
 // Auto-initialize CSRF protection
 init_csrf_protection();
-?>

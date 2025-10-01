@@ -248,11 +248,23 @@ function format_room_number($roomNumber) {
 }
 
 /**
- * Get room type label in Thai
+ * Get room type label in Thai (ประเภทห้อง)
  */
 function get_room_type_label($type) {
     $labels = [
-        'short' => 'แรมชั่วคราว',
+        'double' => 'เตียงคู่',
+        'single' => 'เตียงเดี่ยว'
+    ];
+
+    return $labels[$type] ?? $type;
+}
+
+/**
+ * Get plan type label in Thai (ประเภทการเข้าพัก)
+ */
+function get_plan_type_label($type) {
+    $labels = [
+        'short' => 'ชั่วคราว',
         'overnight' => 'ค้างคืน'
     ];
 
@@ -519,13 +531,13 @@ function calculate_billing($plan_type, $check_in, $check_out) {
  * Calculate short-term billing (hour-based)
  */
 function calculate_short_term_billing($pdo, $check_in, $check_out) {
-    // Get short-term rate
+    // Get short-term rate from room_rates table
     $stmt = $pdo->prepare("SELECT price, duration_hours FROM room_rates WHERE rate_type = 'short' AND is_active = 1");
     $stmt->execute();
     $rate = $stmt->fetch();
 
     if (!$rate) {
-        $rate = ['price' => 200, 'duration_hours' => 3]; // Default values
+        $rate = ['price' => 250, 'duration_hours' => 3]; // Default values
     }
 
     $check_in_time = new DateTime($check_in);
@@ -558,13 +570,13 @@ function calculate_short_term_billing($pdo, $check_in, $check_out) {
  * Calculate overnight billing (night-based until 12:00)
  */
 function calculate_overnight_billing($pdo, $check_in, $check_out) {
-    // Get overnight rate
+    // Get overnight rate from room_rates table
     $stmt = $pdo->prepare("SELECT price FROM room_rates WHERE rate_type = 'overnight' AND is_active = 1");
     $stmt->execute();
     $rate = $stmt->fetch();
 
     if (!$rate) {
-        $rate = ['price' => 350]; // Default value
+        $rate = ['price' => 400]; // Default value
     }
 
     $check_in_time = new DateTime($check_in);
@@ -645,5 +657,3 @@ function get_overdue_duration($booking) {
     $overdue_seconds = $now->getTimestamp() - $checkout_at->getTimestamp();
     return $overdue_seconds / 3600; // Return hours
 }
-
-?>

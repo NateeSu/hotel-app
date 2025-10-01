@@ -261,5 +261,3 @@ function generateUniqueId($prefix = '', $length = 8) {
 // Auto-connect on file include (comment out if you prefer manual connection)
 // Uncomment the next line to auto-connect when this file is included
 // getDatabase();
-
-?>

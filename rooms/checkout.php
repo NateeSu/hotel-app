@@ -88,16 +88,17 @@ try {
         redirectToRoute('rooms.board');
     }
 
-    // Get rate information for overtime calculation
-    $rateType = $booking['plan_type'] === 'short' ? 'short_3h' : 'overnight';
-    $stmt = $pdo->prepare("SELECT price, duration_hours FROM rates WHERE rate_type = ? AND is_active = 1");
+    // Get rate information for calculation
+    $rateType = $booking['plan_type']; // 'short' or 'overnight'
+    $stmt = $pdo->prepare("SELECT price, duration_hours FROM room_rates WHERE rate_type = ? AND is_active = 1");
     $stmt->execute([$rateType]);
     $rate = $stmt->fetch();
 
-    // Get extended rate
-    $stmt = $pdo->prepare("SELECT price FROM rates WHERE rate_type = 'extended' AND is_active = 1");
-    $stmt->execute();
-    $extendedRate = $stmt->fetch();
+    // Get extended rate (default 100 baht per hour for overtime)
+    $extendedRate = ['price' => 100];
+
+    // Use base amount from booking record (price agreed at check-in)
+    $calculatedBaseAmount = $booking['base_amount'] ?? 0;
 
 } catch (Exception $e) {
     flash_error('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' . $e->getMessage());
@@ -242,13 +243,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_checkout'])) 
 $currentTime = now();
 $checkInTime = new DateTime($booking['checkin_at']);
 $currentDateTime = new DateTime($currentTime);
-$currentDuration = $currentDateTime->diff($checkInTime);
-$currentHours = ($currentDuration->days * 24) + $currentDuration->h + ($currentDuration->i / 60);
+$checkoutDateTime = new DateTime($booking['checkout_at']);
 
+// Calculate actual duration for display
+$currentDuration = $currentDateTime->diff($checkInTime);
+
+// Get base hours from rate
 $baseHours = $rate['duration_hours'] ?? 3;
-$currentOvertimeHours = max(0, ceil($currentHours) - $baseHours);
-$currentOvertimeAmount = $currentOvertimeHours * ($extendedRate['price'] ?? 100);
-$currentTotalAmount = ($booking['base_amount'] ?? 0) + $currentOvertimeAmount;
+
+// Calculate overtime information (display only, no automatic charge)
+$currentOvertimeHours = 0;
+$currentOvertimeMinutes = 0;
+$isOvertime = false;
+
+if ($currentDateTime > $checkoutDateTime) {
+    // Calculate time past scheduled checkout
+    $overdue_seconds = $currentDateTime->getTimestamp() - $checkoutDateTime->getTimestamp();
+    $overdue_hours_decimal = $overdue_seconds / 3600;
+    $currentOvertimeHours = floor($overdue_hours_decimal);
+    $currentOvertimeMinutes = floor(($overdue_hours_decimal - $currentOvertimeHours) * 60);
+    $isOvertime = true;
+}
+
+// Total = Base amount only (no automatic overtime charge)
+$currentTotalAmount = $calculatedBaseAmount;
 
 // Include header
 require_once __DIR__ . '/../templates/layout/header.php';
@@ -329,9 +347,15 @@ require_once __DIR__ . '/../templates/layout/header.php';
                                             ?>
                                         </span>
                                     </p>
+                                    <?php if ($booking['plan_type'] === 'short'): ?>
                                     <p class="mb-2"><strong>แพ็คเกจ:</strong><br>
                                         <?php echo $baseHours; ?> ชั่วโมง
                                     </p>
+                                    <?php else: ?>
+                                    <p class="mb-2"><strong>กำหนด Check-out:</strong><br>
+                                        <?php echo format_datetime_thai($booking['checkout_at'], 'd/m/Y H:i'); ?>
+                                    </p>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -351,13 +375,21 @@ require_once __DIR__ . '/../templates/layout/header.php';
                             <div class="billing-summary">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>ค่าห้อง (พื้นฐาน):</span>
-                                    <strong><?php echo money_format_thb($booking['base_amount'] ?? 0); ?></strong>
+                                    <strong><?php echo money_format_thb($calculatedBaseAmount); ?></strong>
                                 </div>
 
-                                <?php if ($currentOvertimeHours > 0): ?>
-                                <div class="d-flex justify-content-between mb-2 text-warning">
-                                    <span>ค่าเกินเวลา (<?php echo $currentOvertimeHours; ?> ชั่วโมง):</span>
-                                    <strong>+<?php echo money_format_thb($currentOvertimeAmount); ?></strong>
+                                <?php if ($isOvertime): ?>
+                                <div class="alert alert-warning py-2 mb-2">
+                                    <i class="bi bi-clock-history me-2"></i>
+                                    <strong>เกินเวลา:</strong>
+                                    <?php
+                                    if ($currentOvertimeHours > 0) {
+                                        echo $currentOvertimeHours . ' ชม. ';
+                                    }
+                                    echo $currentOvertimeMinutes . ' นาที';
+                                    ?>
+                                    <br>
+                                    <small class="text-muted">กรุณากรอกค่าใช้จ่ายเพิ่มเติมด้านล่าง</small>
                                 </div>
                                 <?php endif; ?>
 
@@ -490,15 +522,14 @@ require_once __DIR__ . '/../templates/layout/header.php';
 
 <script>
 // Real-time total calculation
-const baseAmount = <?php echo $booking['base_amount'] ?? 0; ?>;
-const overtimeAmount = <?php echo $currentOvertimeAmount; ?>;
+const baseAmount = <?php echo $calculatedBaseAmount; ?>;
 
 function updateTotal() {
     const extraAmount = parseFloat(document.getElementById('extra_amount').value) || 0;
-    const totalAmount = baseAmount + overtimeAmount + extraAmount;
+    const totalAmount = baseAmount + extraAmount;
 
     // Update display
-    document.getElementById('extra_amount_display').textContent = '฿' + extraAmount.toLocaleString('th-TH', {minimumFractionDigits: 2});
+    document.getElementById('extra_amount_display').textContent = '฿' + extraAmount.toLocaleString('th-TH', {minimumFractionDigths: 2});
     document.getElementById('total_amount_display').textContent = '฿' + totalAmount.toLocaleString('th-TH', {minimumFractionDigits: 2});
 }
 

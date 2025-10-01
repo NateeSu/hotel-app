@@ -531,4 +531,3 @@ function checkSessionTimeout() {
 
     $_SESSION['last_activity'] = time();
 }
-?>

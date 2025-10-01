@@ -42,13 +42,238 @@ if (!function_exists('has_permission')) {
 }
 ?>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
-    <div class="container-fluid">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap');
+
+.custom-navbar {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+    box-shadow: 0 2px 15px rgba(0,0,0,0.15);
+    padding: 0.8rem 0;
+    font-family: 'Prompt', sans-serif;
+}
+
+.custom-navbar .navbar-brand {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    transition: transform 0.3s ease;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    color: #ffffff !important;
+}
+
+.custom-navbar .navbar-brand:hover {
+    transform: scale(1.05);
+    color: #ffffff !important;
+}
+
+.custom-navbar .navbar-brand i {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    color: #ffffff;
+}
+
+.custom-navbar .nav-link {
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.5rem 0.8rem !important;
+    margin: 0 0.1rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    color: #ffffff !important;
+}
+
+.custom-navbar .nav-link.disabled {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Tablet landscape (iPad) optimization */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .custom-navbar .nav-link {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.5rem !important;
+        margin: 0;
+    }
+
+    .custom-navbar .navbar-brand {
+        font-size: 1.1rem;
+    }
+
+    .custom-navbar .navbar-brand i {
+        font-size: 1.5rem !important;
+    }
+
+    .custom-navbar .bi {
+        font-size: 0.95rem;
+    }
+
+    /* Hide text on tablet, show only icons */
+    .custom-navbar .nav-link span:not(.badge) {
+        display: none;
+    }
+
+    /* Keep icon visible */
+    .custom-navbar .nav-link i {
+        margin-right: 0 !important;
+        font-size: 1.2rem;
+    }
+
+    /* Add tooltip on hover for icon-only links */
+    .custom-navbar .nav-item:not(.dropdown) .nav-link {
+        position: relative;
+    }
+
+    .custom-navbar .nav-item:not(.dropdown) .nav-link:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -35px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        z-index: 1000;
+        pointer-events: none;
+    }
+
+    /* Adjust dropdown toggle to show text */
+    .custom-navbar .dropdown .nav-link span:not(.badge) {
+        display: inline;
+        margin-left: 0.3rem;
+    }
+
+    /* Reduce container padding */
+    .custom-navbar .container-fluid {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* User dropdown on tablet - show only icon and role */
+    .custom-navbar .navbar-nav:last-child .nav-link span:first-of-type {
+        display: none; /* Hide username */
+    }
+
+    .custom-navbar .navbar-nav:last-child .nav-link small {
+        display: inline !important; /* Keep role visible */
+        margin-left: 0.5rem;
+    }
+}
+
+/* iPad Pro landscape */
+@media (min-width: 1024px) and (max-width: 1366px) {
+    .custom-navbar .nav-link {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.7rem !important;
+    }
+}
+
+.custom-navbar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.custom-navbar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.25);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.custom-navbar .dropdown-menu {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-family: 'Prompt', sans-serif;
+}
+
+.custom-navbar .dropdown-item {
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+}
+
+.custom-navbar .dropdown-item:hover:not(.disabled) {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    color: white;
+    transform: translateX(5px);
+}
+
+.custom-navbar .dropdown-item.disabled {
+    opacity: 0.5;
+}
+
+.custom-navbar .dropdown-header {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #3b82f6;
+    letter-spacing: 0.5px;
+}
+
+.custom-navbar .dropdown-divider {
+    margin: 0.5rem 0;
+    border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.custom-navbar .badge {
+    font-size: 0.65rem;
+    padding: 0.25em 0.5em;
+    font-weight: 600;
+}
+
+.custom-navbar .bi {
+    font-size: 1.1rem;
+}
+
+.custom-navbar .dropdown-toggle::after {
+    transition: transform 0.3s ease;
+}
+
+.custom-navbar .dropdown.show .dropdown-toggle::after {
+    transform: rotate(180deg);
+}
+
+.custom-navbar .navbar-toggler {
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    padding: 0.5rem;
+}
+
+.custom-navbar .navbar-toggler:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
+
+/* Animation for dropdown menu */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-navbar .dropdown-menu.show {
+    animation: fadeInDown 0.3s ease;
+}
+</style>
+
+<nav class="navbar navbar-expand-lg navbar-dark custom-navbar sticky-top">
+    <div class="container-fluid px-3 px-lg-4">
         <!-- Brand/Logo -->
         <a class="navbar-brand d-flex align-items-center" href="<?php echo $GLOBALS['baseUrl'] ?? '/hotel-app'; ?>/?r=home">
-            <i class="bi bi-building me-2 fs-4"></i>
-            <span class="fw-bold d-none d-sm-inline"><?php echo htmlspecialchars($hotelName); ?></span>
-            <span class="fw-bold d-sm-none"><?php echo htmlspecialchars(mb_substr($hotelName, 0, 10)); ?></span>
+            <i class="bi bi-building-fill me-2" style="font-size: 1.8rem;"></i>
+            <div class="d-flex flex-column">
+                <span class="fw-bold d-none d-sm-inline" style="line-height: 1.2;"><?php echo htmlspecialchars($hotelName); ?></span>
+                <span class="fw-bold d-sm-none"><?php echo htmlspecialchars(mb_substr($hotelName, 0, 10)); ?></span>
+            </div>
         </a>
 
         <!-- Mobile toggle button -->
@@ -64,7 +289,8 @@ if (!function_exists('has_permission')) {
                     <!-- Rooms -->
                     <li class="nav-item">
                         <a class="nav-link <?php echo str_starts_with($currentRoute, 'rooms') ? 'active' : ''; ?>"
-                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=rooms.board">
+                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=rooms.board"
+                           title="ห้องพัก">
                             <i class="bi bi-grid-3x3-gap me-1"></i>
                             <span>ห้องพัก</span>
                         </a>
@@ -103,7 +329,7 @@ if (!function_exists('has_permission')) {
                     <?php if (has_permission($userRole, ['reception', 'admin'])): ?>
                     <li class="nav-item">
                         <a class="nav-link disabled opacity-50"
-                           href="#" title="ฟีเจอร์นี้อยู่ระหว่างการพัฒนา">
+                           href="#" title="ลูกค้า (ฟีเจอร์อยู่ระหว่างพัฒนา)">
                             <i class="bi bi-people me-1"></i>
                             <span class="d-none d-md-inline">ลูกค้า</span>
                             <small class="badge bg-warning text-dark ms-1 d-none d-lg-inline">Soon</small>
@@ -115,7 +341,8 @@ if (!function_exists('has_permission')) {
                     <?php if (has_permission($userRole, ['housekeeping', 'admin'])): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo str_starts_with($currentRoute, 'housekeeping') ? 'active' : ''; ?>"
-                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=housekeeping.jobs">
+                           href="<?php echo $GLOBALS['baseUrl']; ?>/?r=housekeeping.jobs"
+                           title="แม่บ้าน">
                             <i class="bi bi-tools me-1"></i>
                             <span class="d-none d-lg-inline">แม่บ้าน</span>
                         </a>

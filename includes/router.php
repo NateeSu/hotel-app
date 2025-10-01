@@ -374,4 +374,3 @@ function getAvailableRoutes($userRole = null) {
 
     return $availableRoutes;
 }
-?>

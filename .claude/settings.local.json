@@ -10,7 +10,11 @@
       "Bash(findstr:*)",
       "Bash(rm:*)",
       "Bash(ls:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Bash(git checkout:*)",
+      "Read(//d/**)",
+      "Bash(\"D:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"USE hotel_management; SOURCE D:/xampp/htdocs/hotel-app/migrations/003_create_settings_and_receipts_tables.sql;\")"
     ],
     "deny": [],
     "ask": []

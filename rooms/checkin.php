@@ -142,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($planType === 'short') {
             // Short-term: hour-based calculation
-            $rateType = 'short_3h';
-            $stmt = $pdo->prepare("SELECT price, duration_hours FROM rates WHERE rate_type = ? AND is_active = 1");
+            $rateType = 'short';
+            $stmt = $pdo->prepare("SELECT price, duration_hours FROM room_rates WHERE rate_type = ? AND is_active = 1");
             $stmt->execute([$rateType]);
             $rate = $stmt->fetch();
 
@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else if ($planType === 'overnight') {
             // Overnight: night-based calculation
             $rateType = 'overnight';
-            $stmt = $pdo->prepare("SELECT price FROM rates WHERE rate_type = ? AND is_active = 1");
+            $stmt = $pdo->prepare("SELECT price FROM room_rates WHERE rate_type = ? AND is_active = 1");
             $stmt->execute([$rateType]);
             $rate = $stmt->fetch();
 
