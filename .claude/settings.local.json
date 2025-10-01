@@ -14,7 +14,19 @@
       "Bash(grep:*)",
       "Bash(git checkout:*)",
       "Read(//d/**)",
-      "Bash(\"D:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"USE hotel_management; SOURCE D:/xampp/htdocs/hotel-app/migrations/003_create_settings_and_receipts_tables.sql;\")"
+      "Bash(\"D:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"USE hotel_management; SOURCE D:/xampp/htdocs/hotel-app/migrations/003_create_settings_and_receipts_tables.sql;\")",
+      "Bash(for:*)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(tail:*)",
+      "Bash(done)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(then echo \"Processing: $file\")",
+      "Bash(fi)",
+      "Bash(then echo \"=== $file ===\")",
+      "Bash(then sed -i 's/^?>$//' \"$file\")",
+      "Bash(echo:*)",
+      "Bash(do if grep -q \"^?>$\" \"$file\")",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

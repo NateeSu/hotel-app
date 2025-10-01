@@ -204,22 +204,22 @@ require_once __DIR__ . '/templates/layout/header.php';
                             </a>
                         </div>
                         <div class="col-md-6">
-                            <a href="<?php echo routeUrl('rooms.checkin'); ?>" class="btn btn-outline-success w-100 p-3">
+                            <button type="button" class="btn btn-outline-success w-100 p-3" disabled>
                                 <i class="bi bi-box-arrow-in-right me-2"></i>
                                 <div>
                                     <div class="fw-bold">Check-in</div>
-                                    <small class="text-muted">รับแขกเข้าพัก</small>
+                                    <small class="text-muted">รับแขกเข้าพัก (ยังไม่เปิดใช้งาน)</small>
                                 </div>
-                            </a>
+                            </button>
                         </div>
                         <div class="col-md-6">
-                            <a href="<?php echo routeUrl('bookings.list'); ?>" class="btn btn-outline-info w-100 p-3">
+                            <button type="button" class="btn btn-outline-info w-100 p-3" disabled>
                                 <i class="bi bi-calendar-check me-2"></i>
                                 <div>
                                     <div class="fw-bold">การจอง</div>
-                                    <small class="text-muted">จัดการการจองห้องพัก</small>
+                                    <small class="text-muted">จัดการการจองห้องพัก (ยังไม่เปิดใช้งาน)</small>
                                 </div>
-                            </a>
+                            </button>
                         </div>
                         <div class="col-md-6">
                             <a href="<?php echo routeUrl('reports.sales'); ?>" class="btn btn-outline-secondary w-100 p-3">
