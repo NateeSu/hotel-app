@@ -1,111 +1,568 @@
-# Hotel Management System
+# 🏨 Hotel Management System
 
-ระบบจัดการโรงแรมด้วย PHP 8.2 + MySQL + Bootstrap 5 สำหรับ XAMPP
+ระบบจัดการโรงแรมแบบครบวงจร พัฒนาด้วย **PHP 8.2 + MySQL 8.0 + Bootstrap 5** สำหรับ XAMPP
 
-## การติดตั้ง
+![PHP Version](https://img.shields.io/badge/PHP-8.2%2B-blue)
+![MySQL Version](https://img.shields.io/badge/MySQL-8.0%2B-orange)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-purple)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-### ข้อกำหนดระบบ
-- XAMPP for Windows (PHP 8.2+, MySQL 8.0+, Apache)
-- Web Browser (Chrome, Firefox, Edge)
+---
 
-### ขั้นตอนการติดตั้ง
+## 📋 สารบัญ
 
-#### 1. เตรียมสิ่งแวดล้อม
-1. Copy โปรเจคไปยัง `C:\xampp\htdocs\hotel-app\`
-2. เปิด XAMPP Control Panel
-3. เริ่ม **Apache** และ **MySQL**
-4. ตรวจสอบว่า Apache ทำงานที่ port 80 และ MySQL ที่ port 3306
+- [ฟีเจอร์หลัก](#-ฟีเจอร์หลัก)
+- [ข้อกำหนดระบบ](#-ข้อกำหนดระบบ)
+- [การติดตั้ง](#-การติดตั้ง)
+- [โครงสร้างโปรเจค](#-โครงสร้างโปรเจค)
+- [Database Schema](#-database-schema)
+- [User Accounts](#-user-accounts)
+- [API & Routes](#-api--routes)
+- [Troubleshooting](#-troubleshooting)
+- [การ Deploy](#-การ-deploy)
 
-#### 2. สร้างฐานข้อมูล (Database Setup)
-##### วิธีที่ 1: ใช้ Migration Script (แนะนำ)
-```bash
-# เปิด Command Prompt ไปที่โฟลเดอร์โปรเจค
-cd C:\xampp\htdocs\hotel-app\database
+---
 
-# รันการสร้างตาราง (ใช้เวอร์ชั่น fixed)
-php migrate_fixed.php
+## ✨ ฟีเจอร์หลัก
 
-# รันการเพิ่มข้อมูลตัวอย่าง
-php seed.php
+### 🏠 ระบบจัดการห้องพัก
+- ✅ Room Board แบบ Real-time (แสดงสถานะห้องทั้งหมด)
+- ✅ สถานะห้อง: Available, Occupied, Cleaning, Maintenance
+- ✅ ประเภทห้อง: Single Bed, Double Bed
+- ✅ จัดการห้อง 21 ห้อง (101-105, 201-216)
+
+### 📅 ระบบจองและเช็คอิน/เอาท์
+- ✅ Check-in พร้อมคำนวณราคาอัตโนมัติ
+  - Short-stay (รายชั่วโมง - 3 ชม. ฿200)
+  - Overnight (รายคืน - ฿350/คืน)
+- ✅ Check-out พร้อมออกใบเสร็จ PDF
+- ✅ Transfer ห้อง (ย้ายห้องพร้อมคำนวณส่วนต่าง)
+- ✅ ระบบคำนวณค่าใช้จ่ายแบบ Dynamic
+
+### 🧹 ระบบแม่บ้าน (Housekeeping)
+- ✅ สร้างและมอบหมายงานทำความสะอาด
+- ✅ ติดตามสถานะงาน (Pending, In Progress, Completed)
+- ✅ Priority Management (Low, Normal, High, Urgent)
+- ✅ รายงานประสิทธิภาพพนักงาน
+
+### 💵 ระบบใบเสร็จ (Receipts)
+- ✅ สร้างใบเสร็จอัตโนมัติเมื่อ Check-out
+- ✅ ดาวน์โหลด PDF พร้อมข้อมูลโรงแรม
+- ✅ ประวัติใบเสร็จทั้งหมด
+- ✅ รองรับวิธีชำระเงิน: Cash, Card, Transfer
+
+### 📊 ระบบรายงาน
+- ✅ **รายงานการจอง**: แนวโน้มการจองตามวัน/ชั่วโมง
+- ✅ **รายงานการเข้าพัก**: Occupancy Rate, Room Performance
+- ✅ **รายงานยอดขาย**: Daily Sales, Revenue Analysis
+- ✅ Export เป็น CSV/PDF
+
+### 📱 การแจ้งเตือน Telegram
+- ✅ แจ้งเตือนเมื่อมี Check-in/Check-out
+- ✅ แจ้งเตือนเมื่อมีการ Transfer ห้อง
+- ✅ แจ้งเตือนงานแม่บ้านใหม่
+
+### 👥 ระบบจัดการผู้ใช้
+- ✅ 3 ระดับสิทธิ์: Admin, Reception, Housekeeping
+- ✅ Activity Logs (Audit Trail)
+- ✅ User Management
+
+---
+
+## 💻 ข้อกำหนดระบบ
+
+### Software Requirements
+- **XAMPP** for Windows (หรือ Linux/Mac)
+  - PHP 8.2 หรือสูงกว่า
+  - MySQL 8.0 หรือสูงกว่า
+  - Apache Web Server
+- **Web Browser** (Chrome, Firefox, Edge แนะนำ Chrome)
+
+### PHP Extensions (Required)
+```
+✅ pdo_mysql
+✅ mbstring
+✅ json
+✅ curl
+✅ gd
+✅ xml
 ```
 
-##### วิธีที่ 2: ใช้ phpMyAdmin
-1. เปิดเบราว์เซอร์ไปที่ `http://localhost/phpmyadmin`
-2. สร้างฐานข้อมูลใหม่ชื่อ `hotel_db` (charset: utf8mb4_0900_ai_ci)
-3. Import ไฟล์ `database/schema.sql`
-4. Import ไฟล์ `database/seed.sql`
+---
 
-##### วิธีที่ 3: ใช้เว็บเบราว์เซอร์
-1. ไปที่ `http://localhost/hotel-app/database/migrate_fixed.php`
-2. ไปที่ `http://localhost/hotel-app/database/seed.php`
+## 🚀 การติดตั้ง
 
-#### 3. ทดสอบการติดตั้ง
+### 1️⃣ เตรียมสิ่งแวดล้อม
+
+```bash
+# 1. คัดลอกโปรเจคไปยัง htdocs
+# Windows
+xcopy hotel-app D:\xampp\htdocs\hotel-app\ /E /I
+
+# หรือ Git Clone
+git clone https://github.com/your-repo/hotel-app.git D:\xampp\htdocs\hotel-app
+
+# 2. เปิด XAMPP Control Panel
+# 3. Start Apache และ MySQL
+```
+
+### 2️⃣ สร้างฐานข้อมูล
+
+#### วิธีที่ 1: ใช้ Command Line (แนะนำ)
+
+```bash
+# เข้าไปที่โฟลเดอร์โปรเจค
+cd D:\xampp\htdocs\hotel-app
+
+# สร้างฐานข้อมูลและตาราง
+D:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE hotel_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# Import Schema
+D:\xampp\mysql\bin\mysql.exe -u root hotel_management < database\schema.sql
+
+# Import ข้อมูลเริ่มต้น (Optional - สำหรับทดสอบ)
+D:\xampp\mysql\bin\mysql.exe -u root hotel_management < database\seed.sql
+```
+
+#### วิธีที่ 2: ใช้ phpMyAdmin
+
+1. เปิด `http://localhost/phpmyadmin`
+2. สร้างฐานข้อมูลใหม่: `hotel_management`
+   - Collation: `utf8mb4_unicode_ci`
+3. Import ไฟล์: `database/schema.sql`
+4. (Optional) Import: `database/seed.sql`
+
+### 3️⃣ ตั้งค่า Configuration
+
+```bash
+# Copy .env.example เป็น .env (ถ้ามี)
+copy .env.example .env
+
+# แก้ไขไฟล์ config/db.php ถ้าต้องการเปลี่ยนค่า default
+# Default: DB_NAME=hotel_management, DB_USER=root, DB_PASS=''
+```
+
+### 4️⃣ ทดสอบการติดตั้ง
+
 1. เปิดเบราว์เซอร์ไปที่ `http://localhost/hotel-app`
-2. ระบบจะ redirect ไปหน้า login
-3. ใช้ account ทดสอบด้านล่าง
+2. ระบบจะ redirect ไปหน้า Login
+3. Login ด้วย Account ด้านล่าง
 
-### Account ทดสอบ
-- **Admin:** admin / admin123
-- **Reception:** reception / rec123
-- **Housekeeping:** housekeeping / hk123
+---
 
-### การแก้ไขปัญหา (Troubleshooting)
+## 🔐 User Accounts
 
-#### ปัญหาการเชื่อมต่อฐานข้อมูล
-หาก migrate.php แสดง error การเชื่อมต่อ:
-1. ตรวจสอบ MySQL ทำงานใน XAMPP Control Panel
-2. ตรวจสอบ username/password ใน `config/db.php`
-3. ตรวจสอบชื่อฐานข้อมูลเป็น `hotel_db`
+### Default Admin Account
+```
+Username: admin
+Password: admin123
+Role: Administrator (เข้าถึงได้ทุกอย่าง)
+```
 
-#### ข้อมูลตัวอย่างไม่ปรากฏ
-หาก seed.php ไม่มี error แต่ไม่เห็นข้อมูล:
-1. ตรวจสอบใน phpMyAdmin ว่ามีตาราง 9 ตาราง
-2. ตรวจสอบตาราง users มี 3 records
-3. ตรวจสอบตาราง rooms มี 20 records
+### Reception Accounts
+```
+Username: reception
+Password: rec123
+Role: Reception (จองห้อง, Check-in/out, ออกใบเสร็จ)
 
-#### หน้าเว็บแสดง PHP Error
-หากเห็น PHP errors บนหน้าเว็บ:
-1. ตรวจสอบ PHP version >= 8.0 ใน XAMPP
-2. Enable PHP extensions: pdo_mysql, mbstring
-3. ตรวจสอบไฟล์ .htaccess ในโฟลเดอร์หลัก
+Username: reception1
+Password: rec123
+Role: Reception
+```
 
-## โครงสร้างโปรเจค
+### Housekeeping Accounts
+```
+Username: housekeeping
+Password: hk123
+Role: Housekeeping (ดูและอัปเดตงานทำความสะอาด)
+
+Username: housekeeper1
+Password: hk123
+Role: Housekeeping
+
+Username: housekeeper2
+Password: hk123
+Role: Housekeeping
+```
+
+---
+
+## 📁 โครงสร้างโปรเจค
 
 ```
 hotel-app/
-├── config/                 # การตั้งค่าระบบ
-├── includes/               # ไฟล์ PHP ที่ใช้ร่วมกัน
-├── templates/              # Template หน้าเว็บ
-├── assets/                 # Static files (CSS, JS, Images)
-├── database/               # SQL scripts
-├── admin/                  # หน้าสำหรับ Admin
-├── rooms/                  # จัดการห้องพัก
-├── customers/              # จัดการลูกค้า
-├── bookings/               # ระบบจองห้อง
-├── checkin/                # เช็คอิน
-├── checkout/               # เช็คเอาท์
-├── reports/                # รายงาน
-└── auth/                   # Authentication
+├── 📁 config/              # Database Configuration
+│   └── db.php              # PDO Connection, Timezone Setup
+│
+├── 📁 includes/            # Core PHP Files
+│   ├── auth.php            # Authentication & Authorization
+│   ├── csrf.php            # CSRF Protection
+│   ├── helpers.php         # Helper Functions
+│   └── router.php          # URL Routing System
+│
+├── 📁 templates/           # Layout Templates
+│   ├── layout/
+│   │   ├── header.php      # Header + Navigation
+│   │   └── footer.php      # Footer + Scripts
+│   └── partials/
+│       ├── navbar.php      # Top Navigation Bar
+│       └── flash.php       # Flash Messages
+│
+├── 📁 assets/              # Static Resources
+│   ├── css/                # Custom CSS
+│   ├── js/                 # Custom JavaScript
+│   └── images/             # Images & Icons
+│
+├── 📁 lib/                 # Business Logic Libraries
+│   ├── receipt_generator.php   # PDF Receipt Generator
+│   ├── telegram_service.php    # Telegram Bot Integration
+│   ├── transfer_engine.php     # Room Transfer Logic
+│   └── reports_engine.php      # Reports & Analytics
+│
+├── 📁 admin/               # Admin Pages
+│   └── rooms.php           # Room Management
+│
+├── 📁 rooms/               # Room Operations
+│   ├── board.php           # Room Status Board
+│   ├── checkin.php         # Check-in Form
+│   ├── checkout.php        # Check-out Process
+│   ├── transfer.php        # Room Transfer
+│   └── transfer_history.php # Transfer History
+│
+├── 📁 housekeeping/        # Housekeeping Module
+│   ├── jobs.php            # Job List
+│   ├── job.php             # Job Details
+│   └── reports.php         # Housekeeping Reports
+│
+├── 📁 receipts/            # Receipt Management
+│   ├── history.php         # Receipt History
+│   └── view.php            # View/Download Receipt
+│
+├── 📁 reports/             # Business Reports
+│   ├── bookings.php        # Booking Analytics
+│   ├── occupancy.php       # Occupancy Report
+│   └── sales.php           # Sales Report
+│
+├── 📁 system/              # System Settings
+│   ├── settings.php        # Hotel Settings
+│   └── rates_simple.php    # Rate Management
+│
+├── 📁 auth/                # Authentication
+│   ├── login.php           # Login Page
+│   └── logout.php          # Logout Handler
+│
+├── 📁 api/                 # API Endpoints
+│   ├── calculate_transfer.php  # Transfer Cost Calculator
+│   ├── check_notifications.php # Notification Checker
+│   ├── get_room_booking.php    # Get Room Details
+│   └── room_status.php         # Update Room Status
+│
+├── 📁 database/            # Database Scripts
+│   ├── schema.sql          # Database Schema
+│   └── seed.sql            # Sample Data
+│
+├── 📁 migrations/          # Database Migrations
+│   └── *.sql               # Migration Scripts
+│
+├── 📄 index.php            # Application Entry Point
+├── 📄 dashboard.php        # Main Dashboard
+├── 📄 README.md            # Documentation (This file)
+├── 📄 .htaccess            # Apache Configuration
+└── 📄 .gitignore           # Git Ignore Rules
 ```
 
-## ฟีเจอร์หลัก
+---
+
+## 🗄️ Database Schema
+
+### ตารางทั้งหมด (12 ตาราง)
+
+#### 1. **users** - ผู้ใช้งานระบบ
+```sql
+- id, username, password_hash, full_name
+- role (admin/reception/housekeeping)
+- email, phone, telegram_chat_id
+- is_active, created_at, updated_at
+```
+
+#### 2. **rooms** - ห้องพัก
+```sql
+- id, room_number, room_type (single/double)
+- status (available/occupied/cleaning/maintenance)
+- floor, max_occupancy
+- created_at, updated_at, last_transfer_date
+```
+
+#### 3. **bookings** - การจอง
+```sql
+- id, booking_code, room_id
+- guest_name, guest_phone, guest_id_number, guest_count
+- plan_type (short/overnight)
+- status (active/completed/cancelled)
+- checkin_at, checkout_at
+- base_amount, extra_amount, total_amount
+- payment_method, payment_status
+- transfer_count, created_by
+```
+
+#### 4. **receipts** - ใบเสร็จ
+```sql
+- id, receipt_number, booking_id
+- amount, payment_method, payment_status
+- pdf_path, issued_by, issued_at
+```
+
+#### 5. **rates** - อัตราค่าห้อง
+```sql
+- id, rate_type, description, price
+- duration_hours, is_active
+```
+
+#### 6. **room_rates** - อัตราค่าห้องแต่ละห้อง
+```sql
+- id, rate_type (short/overnight)
+- price, duration_hours, is_active
+```
+
+#### 7. **room_transfers** - การย้ายห้อง
+```sql
+- id, booking_id, from_room_id, to_room_id
+- transfer_reason, price_difference
+- transferred_by, transferred_at
+```
+
+#### 8. **transfer_billing** - การคิดค่าย้ายห้อง
+```sql
+- id, transfer_id, original_rate, new_rate
+- rate_difference, total_adjustment
+- payment_status
+```
+
+#### 9. **housekeeping_jobs** - งานแม่บ้าน
+```sql
+- id, room_id, booking_id, task_type
+- job_type (cleaning/maintenance/inspection)
+- status (pending/in_progress/completed)
+- priority (low/normal/high/urgent)
+- assigned_to, started_at, completed_at
+- actual_duration, telegram_sent
+```
+
+#### 10. **hotel_settings** - ตั้งค่าโรงแรม
+```sql
+- id, setting_key, setting_value
+- ชื่อโรงแรม, ที่อยู่, เบอร์โทร, เลขผู้เสียภาษี
+```
+
+#### 11. **telegram_notifications** - การแจ้งเตือน
+```sql
+- id, notification_type, message, chat_id
+- sent_at, status
+```
+
+#### 12. **activity_logs** - บันทึกการทำงาน
+```sql
+- id, user_id, action, table_name
+- record_id, old_values, new_values
+- ip_address, user_agent, created_at
+```
+
+---
+
+## 🔗 API & Routes
+
+### Main Routes (Router System)
+
+```php
+# Dashboard
+http://localhost/hotel-app/
+http://localhost/hotel-app/?r=dashboard
+
+# Room Management
+?r=rooms.board              # Room Status Board
+?r=rooms.checkin            # Check-in Form
+?r=rooms.checkout           # Check-out
+?r=rooms.transfer           # Transfer Room
+?r=rooms.transfer_history   # Transfer History
+
+# Housekeeping
+?r=housekeeping.jobs        # Job List
+?r=housekeeping.job&id=1    # Job Details
+?r=housekeeping.reports     # Reports
+
+# Receipts
+?r=receipts.history         # Receipt History
+?r=receipts.view&id=1       # View Receipt
+
+# Reports
+?r=reports.bookings         # Booking Report
+?r=reports.occupancy        # Occupancy Report
+?r=reports.sales            # Sales Report
+
+# System
+?r=system.settings          # Hotel Settings
+?r=system.rates             # Rate Management
+
+# Admin
+?r=admin.rooms              # Manage Rooms
+```
+
+### API Endpoints
+
+```php
+# Room Status API
+POST /api/room_status.php
+Parameters: room_id, status
+
+# Transfer Calculator
+POST /api/calculate_transfer.php
+Parameters: from_room_id, to_room_id, booking_id
+
+# Get Room Booking
+GET /api/get_room_booking.php?room_id=1
+
+# Check Notifications
+GET /api/check_notifications.php
+```
+
+---
+
+## 🎨 UI/UX Features
+
+- ✅ **Responsive Design** - Bootstrap 5 Grid System
+- ✅ **Dark Mode Support** - CSS Variables
+- ✅ **Icon Library** - Bootstrap Icons
+- ✅ **Thai Font** - Noto Sans Thai
+- ✅ **Color Scheme**
+  - Primary: `#0d6efd` (Blue)
+  - Success: `#28a745` (Green)
+  - Warning: `#ffc107` (Yellow)
+  - Danger: `#dc3545` (Red)
+
+---
+
+## 🔧 Troubleshooting
+
+### ❌ ไม่สามารถเข้าถึงหน้าเว็บได้
+
+**ตรวจสอบ:**
+1. Apache ทำงานอยู่หรือไม่ (XAMPP Control Panel)
+2. URL ถูกต้อง: `http://localhost/hotel-app`
+3. ไฟล์ `.htaccess` มีอยู่ในโฟลเดอร์หลัก
+
+### ❌ Database Connection Error
+
+**แก้ไข:**
+1. ตรวจสอบ MySQL ทำงานใน XAMPP
+2. ตรวจสอบชื่อ Database = `hotel_management`
+3. ตรวจสอบไฟล์ `config/db.php`
+
+```php
+// Default Configuration
+DB_HOST = 127.0.0.1
+DB_PORT = 3306
+DB_NAME = hotel_management
+DB_USER = root
+DB_PASS = (ว่างเปล่า)
+```
+
+### ❌ PHP Deprecated Warnings
+
+**สาเหตุ:** PHP 8.1+ มีการเปลี่ยนแปลง `number_format()` ไม่รับ `null`
+
+**แก้ไข:** อัปเดตโค้ดให้ใช้ `(int)` cast หรือ `?? 0`
+
+### ❌ รายงานไม่แสดงข้อมูล
+
+**สาเหตุ:** ไม่มีข้อมูล Transaction ในระบบ
+
+**แก้ไข:** ทดสอบระบบโดย:
+1. Check-in ห้องอย่างน้อย 1 ห้อง
+2. Check-out และออกใบเสร็จ
+3. รายงานจะเริ่มแสดงข้อมูล
+
+---
+
+## 🚀 การ Deploy
+
+### Deploy บน Digital Ocean (Ubuntu Server)
+
+ดูคู่มือฉบับเต็มที่: [`DEPLOYMENT.md`](DEPLOYMENT.md)
+
+**สรุปขั้นตอน:**
+
+1. สร้าง Droplet (Ubuntu 22.04 LTS)
+2. ติดตั้ง LAMP Stack (Apache, MySQL, PHP 8.2)
+3. Clone โปรเจคจาก Git
+4. สร้าง Database และ Import Schema
+5. ตั้งค่า Apache Virtual Host
+6. ตั้งค่า SSL Certificate (Certbot)
+7. ทดสอบระบบ
+
+---
+
+## 🧪 การทดสอบ
+
+### Reset Database สำหรับการทดสอบ
+
+```bash
+# สำรองข้อมูลก่อน
+D:\xampp\mysql\bin\mysqldump.exe -u root hotel_management > backup.sql
+
+# เคลียร์ข้อมูล Transaction ทั้งหมด
+D:\xampp\mysql\bin\mysql.exe -u root hotel_management < reset_for_testing.sql
+```
+
+Script `reset_for_testing.sql` จะ:
+- ✅ ลบข้อมูล Bookings, Receipts, Transfers ทั้งหมด
+- ✅ รีเซ็ตสถานะห้องเป็น Available
+- ✅ คง Users และ Rooms ไว้เหมือนเดิม
+
+---
+
+## 📚 เอกสารเพิ่มเติม
+
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) - คู่มือการ Deploy บน Digital Ocean
+- [`cleanup_unused_tables.sql`](cleanup_unused_tables.sql) - Script ทำความสะอาด Database
+- [`reset_for_testing.sql`](reset_for_testing.sql) - Reset Database สำหรับทดสอบ
+
+---
+
+## 🤝 การสนับสนุน
+
+### หากพบปัญหา
+1. ตรวจสอบ [Troubleshooting](#-troubleshooting) ก่อน
+2. ตรวจสอบ Activity Logs ในระบบ
+3. ดู Error Logs: `D:\xampp\apache\logs\error.log`
+
+### ติดต่อผู้พัฒนา
+- 📧 Email: support@hotel-system.com
+- 📱 Line: @hotel-system
+- 🌐 Website: https://hotel-system.com
+
+---
+
+## 📝 License
+
+MIT License - ใช้งานได้อย่างอิสระ
+
+---
+
+## 🎯 Version History
+
+### v1.0.0 (2025-10-03) - Phase 1 Complete
 - ✅ ระบบจัดการห้องพัก
-- ✅ ระบบจองห้อง
-- ✅ ระบบลูกค้า
-- ✅ ระบบเช็คอิน/เอาท์
-- ✅ ระบบรายงาน
-- ✅ ระบบจัดการผู้ใช้
+- ✅ Check-in/Check-out
+- ✅ Room Transfer
+- ✅ Housekeeping Management
+- ✅ Receipt Generation
+- ✅ Reports & Analytics
+- ✅ Telegram Notifications
+- ✅ Activity Logs
+- ✅ Database Cleanup & Optimization
 
-## การพัฒนา
+---
 
-### การรันการทดสอบ
-- ไม่มี automated tests (Manual testing เท่านั้น)
-
-### การ Deploy
-1. Copy ไฟล์ทั้งหมดไปยัง production server
-2. สร้างฐานข้อมูลและ import SQL
-3. แก้ไขการตั้งค่าในไฟล์ config
-4. ตั้งค่า permissions สำหรับโฟลเดอร์ uploads (ถ้ามี)
-
-## การสนับสนุน
-สำหรับคำถามหรือปัญหา กรุณาตรวจสอบเอกสาร TASKS.md และ ACCEPTANCE.md
+**พัฒนาโดย**: Hotel Management System Team
+**อัปเดตล่าสุด**: 3 ตุลาคม 2025
+**สถานะ**: Production Ready ✅
