@@ -130,14 +130,20 @@ try {
     $stmt = $pdo->prepare("
         SELECT
             COUNT(*) as total_jobs,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_jobs,
-            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_jobs,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_jobs
+            COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_jobs,
+            COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress_jobs,
+            COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed_jobs
         FROM housekeeping_jobs hj
         $whereClause
     ");
     $stmt->execute($params);
     $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Ensure all values are integers (not null)
+    $stats['total_jobs'] = (int)($stats['total_jobs'] ?? 0);
+    $stats['pending_jobs'] = (int)($stats['pending_jobs'] ?? 0);
+    $stats['in_progress_jobs'] = (int)($stats['in_progress_jobs'] ?? 0);
+    $stats['completed_jobs'] = (int)($stats['completed_jobs'] ?? 0);
 
     // Get staff list for filter
     $stmt = $pdo->query("
