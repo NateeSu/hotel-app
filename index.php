@@ -23,13 +23,14 @@ if (session_status() === PHP_SESSION_NONE) {
 $isProduction = ($_SERVER['HTTP_HOST'] ?? 'localhost') !== 'localhost'
     && !str_contains($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1');
 
-if ($isProduction) {
-    error_reporting(0);
-    ini_set('display_errors', 0);
-} else {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-}
+// ALWAYS show errors during debugging (remove this in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
+// Log to file as well
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/error.log');
 
 // Set default timezone
 date_default_timezone_set('Asia/Bangkok');
@@ -38,33 +39,67 @@ date_default_timezone_set('Asia/Bangkok');
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptName = dirname($_SERVER['SCRIPT_NAME']);
-$baseUrl = $protocol . '://' . $host . ($scriptName !== '/' ? $scriptName : '');
+
+// Remove trailing slash and handle root directory
+$scriptName = rtrim($scriptName, '/');
+if ($scriptName === '' || $scriptName === '.') {
+    $scriptName = '';
+}
+
+$baseUrl = $protocol . '://' . $host . $scriptName;
 
 // Make baseUrl globally available
 $GLOBALS['baseUrl'] = $baseUrl;
 
 try {
+    // Debug: Log initialization
+    error_log("=== Application Starting ===");
+    error_log("baseUrl: " . $baseUrl);
+    error_log("__DIR__: " . __DIR__);
+    error_log("HTTP_HOST: " . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+    error_log("SCRIPT_NAME: " . ($_SERVER['SCRIPT_NAME'] ?? 'not set'));
+
     // Load core files in proper order
+    error_log("Loading config/db.php");
     require_once __DIR__ . '/config/db.php';
+
+    error_log("Loading includes/helpers.php");
     require_once __DIR__ . '/includes/helpers.php';
+
+    error_log("Loading includes/csrf.php");
     require_once __DIR__ . '/includes/csrf.php';
+
+    error_log("Loading includes/auth.php");
     require_once __DIR__ . '/includes/auth.php';
+
+    error_log("Loading includes/router.php");
     require_once __DIR__ . '/includes/router.php';
 
     // Load flash message functions from partials/flash.php
+    error_log("Loading templates/partials/flash.php");
     require_once __DIR__ . '/templates/partials/flash.php';
 
     // Check session timeout for logged-in users
+    error_log("Checking if user is logged in");
     if (isLoggedIn()) {
+        error_log("User is logged in, checking session timeout");
         checkSessionTimeout();
+    } else {
+        error_log("User is NOT logged in");
     }
 
     // Handle the current route
+    error_log("Calling handleRoute()");
     handleRoute();
+    error_log("handleRoute() completed");
 
 } catch (Exception $e) {
-    // Log the error
-    error_log("Application error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    // Log the error with full details
+    error_log("=== FATAL ERROR ===");
+    error_log("Application error: " . $e->getMessage());
+    error_log("File: " . $e->getFile());
+    error_log("Line: " . $e->getLine());
+    error_log("Stack trace: " . $e->getTraceAsString());
 
     // Show error page
     http_response_code(500);
@@ -93,13 +128,16 @@ try {
                                 กรุณาลองใหม่อีกครั้งในภายหลัง
                             </p>
 
-                            <?php if (!$isProduction && env('APP_DEBUG', false)): ?>
-                                <div class="alert alert-danger text-start">
-                                    <strong>Debug Info:</strong><br>
-                                    <?php echo htmlspecialchars($e->getMessage()); ?><br>
-                                    <small><?php echo htmlspecialchars($e->getFile() . ':' . $e->getLine()); ?></small>
-                                </div>
-                            <?php endif; ?>
+                            <!-- Always show debug info during troubleshooting -->
+                            <div class="alert alert-danger text-start">
+                                <strong>Debug Info:</strong><br>
+                                <strong>Error:</strong> <?php echo htmlspecialchars($e->getMessage()); ?><br>
+                                <strong>File:</strong> <?php echo htmlspecialchars($e->getFile()); ?><br>
+                                <strong>Line:</strong> <?php echo htmlspecialchars($e->getLine()); ?><br>
+                                <hr>
+                                <strong>Stack Trace:</strong><br>
+                                <pre style="font-size: 11px; max-height: 300px; overflow: auto;"><?php echo htmlspecialchars($e->getTraceAsString()); ?></pre>
+                            </div>
 
                             <div class="d-flex gap-2 justify-content-center">
                                 <button onclick="window.location.reload()" class="btn btn-primary">

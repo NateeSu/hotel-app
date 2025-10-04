@@ -9,25 +9,31 @@
 // Start output buffering to prevent header issues
 ob_start();
 
-// Start session and initialize application
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Only initialize if not already loaded by index.php
+if (!defined('APP_INIT')) {
+    // Start session and initialize application
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    date_default_timezone_set('Asia/Bangkok');
+
+    // Define base URL
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // /hotel-app
+    $baseUrl = $protocol . '://' . $host . $scriptPath;
+    $GLOBALS['baseUrl'] = $baseUrl;
+
+    // Load required files (only if not already loaded)
+    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/../includes/helpers.php';
+    require_once __DIR__ . '/../includes/csrf.php';
+    require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../templates/partials/flash.php';
+} else {
+    // Already initialized by index.php, just use existing baseUrl
+    $baseUrl = $GLOBALS['baseUrl'] ?? '';
 }
-date_default_timezone_set('Asia/Bangkok');
-
-// Define base URL
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptPath = dirname($_SERVER['SCRIPT_NAME']); // /hotel-app
-$baseUrl = $protocol . '://' . $host . $scriptPath;
-$GLOBALS['baseUrl'] = $baseUrl;
-
-// Load required files
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/csrf.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../templates/partials/flash.php';
 
 // Fetch hotel settings
 $hotelSettings = [
@@ -64,15 +70,27 @@ $pageDescription = 'เข้าสู่ระบบจัดการโรง
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("=== LOGIN ATTEMPT ===");
+    error_log("POST data: " . print_r($_POST, true));
+
     // Verify CSRF token
-    require_csrf_token();
+    try {
+        require_csrf_token();
+        error_log("CSRF token verified");
+    } catch (Exception $e) {
+        error_log("CSRF token verification failed: " . $e->getMessage());
+        $errors[] = 'CSRF token validation failed. Please refresh and try again.';
+    }
 
     $username = sanitize_input($_POST['username'] ?? '', 'string');
     $password = $_POST['password'] ?? '';
     $remember = isset($_POST['remember']);
 
+    error_log("Username: " . $username);
+    error_log("Password length: " . strlen($password));
+
     // Validation
-    $errors = [];
+    $errors = $errors ?? [];
 
     if (empty($username)) {
         $errors[] = 'กรุณาใส่ชื่อผู้ใช้';
@@ -83,8 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
+        error_log("Attempting login for user: " . $username);
         // Attempt login
         $loginResult = login($username, $password);
+        error_log("Login result: " . print_r($loginResult, true));
 
         if ($loginResult['success']) {
             // Set remember me cookie if requested

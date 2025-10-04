@@ -5,25 +5,36 @@
  * Interface for transferring guests to different rooms
  */
 
-// Define constants first
+// Only initialize if not already loaded by index.php
 if (!defined('APP_INIT')) {
     define('APP_INIT', true);
-}
 
-// Start session and initialize application
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-date_default_timezone_set('Asia/Bangkok');
+    // Start session and initialize application
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    date_default_timezone_set('Asia/Bangkok');
 
-// Load required files
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/csrf.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/router.php';
-require_once __DIR__ . '/../lib/transfer_engine.php';
-require_once __DIR__ . '/../templates/partials/flash.php';
+    // Define base URL
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $appPath = '/hotel-app';
+    $baseUrl = $protocol . '://' . $host . $appPath;
+    $GLOBALS['baseUrl'] = $baseUrl;
+
+    // Load required files
+    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/../includes/helpers.php';
+    require_once __DIR__ . '/../includes/csrf.php';
+    require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/router.php';
+    require_once __DIR__ . '/../lib/transfer_engine.php';
+    require_once __DIR__ . '/../templates/partials/flash.php';
+
+} else {
+    // Already initialized by index.php
+    $baseUrl = $GLOBALS['baseUrl'] ?? '';
+}
 
 // Require login with reception role or higher
 requireLogin(['reception', 'admin']);

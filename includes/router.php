@@ -95,7 +95,29 @@ $routeConfig = [
  * Get the current route from the request
  */
 function getCurrentRoute() {
-    return $_GET['r'] ?? 'home';
+    $route = $_GET['r'] ?? null;
+
+    // Debug logging
+    error_log("getCurrentRoute() called");
+    error_log("  \$_GET['r']: " . var_export($_GET['r'] ?? 'NOT SET', true));
+    error_log("  REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'NOT SET'));
+    error_log("  QUERY_STRING: " . ($_SERVER['QUERY_STRING'] ?? 'NOT SET'));
+
+    // If no route specified, determine default based on login status
+    if (!$route || $route === '') {
+        // Check if user is logged in
+        $isLoggedIn = function_exists('isLoggedIn') && isLoggedIn();
+        error_log("  No route specified, isLoggedIn: " . ($isLoggedIn ? 'YES' : 'NO'));
+
+        if ($isLoggedIn) {
+            $route = 'home'; // Logged in users go to dashboard
+        } else {
+            $route = 'auth.login'; // Not logged in users go to login
+        }
+    }
+
+    error_log("  Final route: " . $route);
+    return $route;
 }
 
 /**
@@ -252,9 +274,25 @@ function handleRoute() {
         if (!isLoggedIn()) {
             // Prevent redirect loop for auth.login route
             if ($route === 'auth.login') {
-                error_log("Redirect loop prevented: trying to redirect to auth.login from auth.login");
+                error_log("ERROR: No permission for auth.login route - this should not happen!");
+                error_log("Route config: " . print_r(getRouteConfig('auth.login'), true));
+
+                // Force show the login page even if permission check fails
+                $routeFile = getRouteFile($route);
+                if ($routeFile) {
+                    $filePath = __DIR__ . '/../' . $routeFile;
+                    $filePath = str_replace('\\', '/', $filePath);
+
+                    if (file_exists($filePath)) {
+                        error_log("Loading login page directly: " . $filePath);
+                        require_once $filePath;
+                        return;
+                    }
+                }
+
+                // If we still can't load login, show error
                 http_response_code(500);
-                die('Error: Authentication configuration error. Please contact administrator.');
+                die('Error: Cannot load login page. Please check auth/login.php exists.');
             }
 
             // Redirect to login for unauthenticated users
@@ -262,6 +300,7 @@ function handleRoute() {
 
             // Direct redirect without using redirectToRoute to avoid potential loops
             $loginUrl = $GLOBALS['baseUrl'] . '/?r=auth.login';
+            error_log("Redirecting to login: " . $loginUrl);
             header('Location: ' . $loginUrl);
             exit;
         } else {

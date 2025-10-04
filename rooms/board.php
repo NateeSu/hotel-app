@@ -70,27 +70,35 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     exit;
 }
 
-// Start session and initialize application
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Only initialize if not already loaded by index.php
+if (!defined('APP_INIT')) {
+    define('APP_INIT', true);
+
+    // Start session and initialize application
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    date_default_timezone_set('Asia/Bangkok');
+
+    // Define base URL - fix for XAMPP Windows paths
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptName = $_SERVER['SCRIPT_NAME']; // /hotel-app/rooms/board.php
+    $appPath = '/hotel-app'; // Force correct path for XAMPP setup
+    $baseUrl = $protocol . '://' . $host . $appPath;
+    $GLOBALS['baseUrl'] = $baseUrl;
+
+    // Load required files
+    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/../includes/helpers.php';
+    require_once __DIR__ . '/../includes/csrf.php';
+    require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/router.php';
+    require_once __DIR__ . '/../templates/partials/flash.php';
+} else {
+    // Already initialized by index.php
+    $baseUrl = $GLOBALS['baseUrl'] ?? '';
 }
-date_default_timezone_set('Asia/Bangkok');
-
-// Define base URL - fix for XAMPP Windows paths
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptName = $_SERVER['SCRIPT_NAME']; // /hotel-app/rooms/board.php
-$appPath = '/hotel-app'; // Force correct path for XAMPP setup
-$baseUrl = $protocol . '://' . $host . $appPath;
-$GLOBALS['baseUrl'] = $baseUrl;
-
-// Load required files
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/csrf.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/router.php';
-require_once __DIR__ . '/../templates/partials/flash.php';
 
 // Require login with reception role or higher
 requireLogin(['reception', 'admin']);
