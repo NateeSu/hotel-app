@@ -277,21 +277,42 @@ hotel-app/
 
 ### ตารางทั้งหมด (12 ตาราง)
 
-#### 1. **users** - ผู้ใช้งานระบบ
+| # | ตาราง | จำนวนข้อมูล | สถานะ | หมายเหตุ |
+|---|--------|-------------|--------|-----------|
+| 1 | users | 6 | ✅ ใช้งาน | ผู้ใช้งานระบบ |
+| 2 | rooms | 21 | ✅ ใช้งาน | ห้องพัก |
+| 3 | bookings | 0 | ✅ ใช้งาน | การจอง (รีเซ็ตแล้ว) |
+| 4 | receipts | 0 | ✅ ใช้งาน | ใบเสร็จ (รีเซ็ตแล้ว) |
+| 5 | rates | 3 | ⚠️ Legacy | ตารางเดิม (ไม่ค่อยใช้) |
+| 6 | room_rates | 2 | ✅ ใช้งาน | อัตราค่าห้อง (ตารางหลัก) |
+| 7 | room_transfers | 0 | ✅ ใช้งาน | การย้ายห้อง (รีเซ็ตแล้ว) |
+| 8 | transfer_billing | 0 | ✅ ใช้งาน | การคิดค่าย้ายห้อง (รีเซ็ตแล้ว) |
+| 9 | housekeeping_jobs | 0 | ✅ ใช้งาน | งานแม่บ้าน (รีเซ็ตแล้ว) |
+| 10 | hotel_settings | 13 | ✅ ใช้งาน | ตั้งค่าโรงแรม |
+| 11 | telegram_notifications | 0 | ✅ ใช้งาน | การแจ้งเตือน (รีเซ็ตแล้ว) |
+| 12 | activity_logs | 2 | ✅ ใช้งาน | บันทึกการทำงาน |
+
+---
+
+### รายละเอียดโครงสร้างตาราง
+
+#### 1. **users** - ผู้ใช้งานระบบ (6 users)
 ```sql
 - id, username, password_hash, full_name
 - role (admin/reception/housekeeping)
 - email, phone, telegram_chat_id
 - is_active, created_at, updated_at
 ```
+**ข้อมูลปัจจุบัน**: admin, reception, reception1, housekeeping, housekeeper1, housekeeper2
 
-#### 2. **rooms** - ห้องพัก
+#### 2. **rooms** - ห้องพัก (21 rooms)
 ```sql
 - id, room_number, room_type (single/double)
 - status (available/occupied/cleaning/maintenance)
 - floor, max_occupancy
 - created_at, updated_at, last_transfer_date
 ```
+**ข้อมูลปัจจุบัน**: ห้อง 101-105 (ชั้น 1), 201-216 (ชั้น 2)
 
 #### 3. **bookings** - การจอง
 ```sql
@@ -301,7 +322,8 @@ hotel-app/
 - status (active/completed/cancelled)
 - checkin_at, checkout_at
 - base_amount, extra_amount, total_amount
-- payment_method, payment_status
+- payment_method (cash/card/transfer)
+- payment_status (pending/paid/partial)
 - transfer_count, created_by
 ```
 
@@ -312,30 +334,44 @@ hotel-app/
 - pdf_path, issued_by, issued_at
 ```
 
-#### 5. **rates** - อัตราค่าห้อง
+#### 5. **rates** - อัตราค่าห้อง (Legacy - ไม่ค่อยใช้)
 ```sql
 - id, rate_type, description, price
 - duration_hours, is_active
 ```
+**ข้อมูลปัจจุบัน**:
+- short_3h: ฿300 (3 ชม.)
+- overnight: ฿800 (12 ชม.)
+- extended: ฿100 (1 ชม.)
 
-#### 6. **room_rates** - อัตราค่าห้องแต่ละห้อง
+⚠️ **หมายเหตุ**: ตารางนี้เป็น legacy code ระบบใช้ `room_rates` เป็นหลัก
+
+#### 6. **room_rates** - อัตราค่าห้อง (ตารางหลัก) ⭐
 ```sql
 - id, rate_type (short/overnight)
 - price, duration_hours, is_active
 ```
+**ข้อมูลปัจจุบัน**:
+- **Short-stay**: ฿250 (3 ชม.)
+- **Overnight**: ฿400 (12 ชม.)
+
+**ใช้งานใน**: checkin.php, checkout.php, rates_simple.php, helpers.php
 
 #### 7. **room_transfers** - การย้ายห้อง
 ```sql
 - id, booking_id, from_room_id, to_room_id
-- transfer_reason, price_difference
+- transfer_reason, price_difference, total_adjustment
 - transferred_by, transferred_at
+- guest_notified, housekeeping_notified
+- status, notes
 ```
 
 #### 8. **transfer_billing** - การคิดค่าย้ายห้อง
 ```sql
 - id, transfer_id, original_rate, new_rate
-- rate_difference, total_adjustment
-- payment_status
+- rate_difference, nights_affected
+- subtotal, tax_amount, service_charge
+- total_adjustment, payment_status
 ```
 
 #### 9. **housekeeping_jobs** - งานแม่บ้าน
@@ -346,21 +382,28 @@ hotel-app/
 - priority (low/normal/high/urgent)
 - assigned_to, started_at, completed_at
 - actual_duration, telegram_sent
+- created_by, created_at, updated_at
 ```
 
-#### 10. **hotel_settings** - ตั้งค่าโรงแรม
+#### 10. **hotel_settings** - ตั้งค่าโรงแรม (13 settings)
 ```sql
 - id, setting_key, setting_value
-- ชื่อโรงแรม, ที่อยู่, เบอร์โทร, เลขผู้เสียภาษี
 ```
+**ข้อมูลปัจจุบัน**:
+- hotel_name: ชื่อโรงแรม
+- hotel_address: ที่อยู่
+- hotel_phone: เบอร์โทร
+- tax_id: เลขผู้เสียภาษี
+- และอื่นๆ
 
 #### 11. **telegram_notifications** - การแจ้งเตือน
 ```sql
-- id, notification_type, message, chat_id
-- sent_at, status
+- id, notification_type, message
+- chat_id, sent_at, status
+- related_id, related_table
 ```
 
-#### 12. **activity_logs** - บันทึกการทำงาน
+#### 12. **activity_logs** - บันทึกการทำงาน (Audit Trail)
 ```sql
 - id, user_id, action, table_name
 - record_id, old_values, new_values

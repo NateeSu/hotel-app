@@ -203,6 +203,20 @@ function routeUrl($route, $params = []) {
 function handleRoute() {
     $route = getCurrentRoute();
 
+    // Prevent infinite redirect loop - track redirect depth
+    static $redirectCount = 0;
+    if ($redirectCount > 3) {
+        error_log("Infinite redirect loop detected for route: {$route}");
+        die('Error: Infinite redirect loop detected. Please check your configuration.');
+    }
+    $redirectCount++;
+
+    // Validate baseUrl is set
+    if (empty($GLOBALS['baseUrl'])) {
+        error_log("baseUrl is not set in GLOBALS");
+        die('Error: Application baseUrl is not configured properly.');
+    }
+
     // Check if route exists
     if (!routeExists($route)) {
         http_response_code(404);
@@ -219,7 +233,7 @@ function handleRoute() {
                             <i class="bi bi-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
                             <h1 class="h3 mt-3 mb-2">ไม่พบหน้าที่ต้องการ</h1>
                             <p class="text-muted mb-4">หน้าที่คุณค้นหาไม่มีอยู่ในระบบ หรืออาจถูกย้ายไปแล้ว</p>
-                            <a href="<?php echo routeUrl('home'); ?>" class="btn btn-primary">
+                            <a href="<?php echo $GLOBALS['baseUrl']; ?>/?r=home" class="btn btn-primary">
                                 <i class="bi bi-house me-1"></i>
                                 กลับสู่หน้าหลัก
                             </a>
@@ -236,9 +250,20 @@ function handleRoute() {
     // Check permissions
     if (!hasRoutePermission($route)) {
         if (!isLoggedIn()) {
+            // Prevent redirect loop for auth.login route
+            if ($route === 'auth.login') {
+                error_log("Redirect loop prevented: trying to redirect to auth.login from auth.login");
+                http_response_code(500);
+                die('Error: Authentication configuration error. Please contact administrator.');
+            }
+
             // Redirect to login for unauthenticated users
             $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-            redirectToRoute('auth.login');
+
+            // Direct redirect without using redirectToRoute to avoid potential loops
+            $loginUrl = $GLOBALS['baseUrl'] . '/?r=auth.login';
+            header('Location: ' . $loginUrl);
+            exit;
         } else {
             // Show access denied for authenticated but unauthorized users
             http_response_code(403);
@@ -255,7 +280,7 @@ function handleRoute() {
                                 <i class="bi bi-shield-exclamation text-danger" style="font-size: 4rem;"></i>
                                 <h1 class="h3 mt-3 mb-2">ไม่ได้รับอนุญาต</h1>
                                 <p class="text-muted mb-4">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กรุณาติดต่อผู้ดูแลระบบ</p>
-                                <a href="<?php echo routeUrl('home'); ?>" class="btn btn-primary">
+                                <a href="<?php echo $GLOBALS['baseUrl']; ?>/?r=home" class="btn btn-primary">
                                     <i class="bi bi-house me-1"></i>
                                     กลับสู่หน้าหลัก
                                 </a>
@@ -274,9 +299,14 @@ function handleRoute() {
     $routeFile = getRouteFile($route);
     $filePath = __DIR__ . '/../' . $routeFile;
 
+    // Normalize path for cross-platform compatibility
+    $filePath = str_replace('\\', '/', $filePath);
+
     // Check if file exists
     if (!file_exists($filePath)) {
         error_log("Route file not found: {$filePath}");
+        error_log("Current route: {$route}, Route file: {$routeFile}");
+        error_log("__DIR__: " . __DIR__);
         http_response_code(500);
 
         $pageTitle = 'เกิดข้อผิดพลาด';
@@ -292,7 +322,15 @@ function handleRoute() {
                             <i class="bi bi-bug text-danger" style="font-size: 4rem;"></i>
                             <h1 class="h3 mt-3 mb-2">เกิดข้อผิดพลาด</h1>
                             <p class="text-muted mb-4">ระบบเกิดข้อผิดพลาดชั่วคราว กรุณาลองใหม่อีกครั้ง</p>
-                            <a href="<?php echo routeUrl('home'); ?>" class="btn btn-primary">
+                            <?php if (!empty($_ENV['APP_DEBUG']) || (isset($_SERVER['SERVER_NAME']) && $_SERVER['SERVER_NAME'] === 'localhost')): ?>
+                                <div class="alert alert-danger text-start mt-3">
+                                    <strong>Debug Info:</strong><br>
+                                    Route: <?php echo htmlspecialchars($route); ?><br>
+                                    Expected file: <?php echo htmlspecialchars($filePath); ?><br>
+                                    File exists: <?php echo file_exists($filePath) ? 'Yes' : 'No'; ?>
+                                </div>
+                            <?php endif; ?>
+                            <a href="<?php echo $GLOBALS['baseUrl']; ?>/?r=home" class="btn btn-primary">
                                 <i class="bi bi-arrow-clockwise me-1"></i>
                                 ลองใหม่
                             </a>

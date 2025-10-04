@@ -72,6 +72,11 @@ function requireLogin($role = null) {
         // Add flash message (if function exists)
         if (function_exists('flash_info')) {
             flash_info('กรุณาเข้าสู่ระบบเพื่อใช้งาน');
+        } else {
+            $_SESSION['flash_message'] = [
+                'message' => 'กรุณาเข้าสู่ระบบเพื่อใช้งาน',
+                'type' => 'info'
+            ];
         }
 
         // Redirect to login
@@ -83,7 +88,15 @@ function requireLogin($role = null) {
     if ($role !== null) {
         $user = currentUser();
         if (!$user || !has_permission($user['role'], $role)) {
-            flash_error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+            // Set flash message if function exists
+            if (function_exists('flash_error')) {
+                flash_error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+            } else {
+                $_SESSION['flash_message'] = [
+                    'message' => 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้',
+                    'type' => 'error'
+                ];
+            }
             header('Location: ' . $GLOBALS['baseUrl'] . '/?r=home');
             exit;
         }
@@ -524,9 +537,23 @@ function checkSessionTimeout() {
 
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout)) {
         logout();
-        flash_warning('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-        header('Location: ' . $GLOBALS['baseUrl'] . '/?r=auth.login');
-        exit;
+
+        // Set flash message if function exists
+        if (function_exists('flash_warning')) {
+            flash_warning('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        } else {
+            $_SESSION['flash_message'] = [
+                'message' => 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
+                'type' => 'warning'
+            ];
+        }
+
+        // Only redirect if not already on login page to prevent loop
+        $currentRoute = $_GET['r'] ?? 'home';
+        if ($currentRoute !== 'auth.login') {
+            header('Location: ' . $GLOBALS['baseUrl'] . '/?r=auth.login');
+            exit;
+        }
     }
 
     $_SESSION['last_activity'] = time();
